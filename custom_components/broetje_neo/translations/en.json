@@ -294,6 +294,69 @@
       "heating_limit_observed": {
         "name": "Heating limit observed"
       },
+      "plant_state": {
+        "name": "State",
+        "state": {
+          "fault": "Fault",
+          "price_lock": "Price lock",
+          "utility_lock": "Utility lock",
+          "off": "Off",
+          "defrost": "Defrost",
+          "hot_water": "Hot water",
+          "heating": "Heating",
+          "cooling": "Cooling",
+          "compressor_running": "Compressor running",
+          "heating_demand": "Heating demand",
+          "dhw_demand": "Hot water demand",
+          "summer": "Summer mode",
+          "standby": "Standby"
+        }
+      },
+      "heating_demand_last_start": {
+        "name": "Heating demand last started"
+      },
+      "compressor_heating_last_start": {
+        "name": "Compressor heating last started"
+      },
+      "heating_season_start": {
+        "name": "Heating season started"
+      },
+      "heating_demand_today": {
+        "name": "Heating demand today"
+      },
+      "heating_demand_yesterday": {
+        "name": "Heating demand yesterday"
+      },
+      "heating_demand_7d": {
+        "name": "Heating demand 7 days"
+      },
+      "compressor_runtime_today": {
+        "name": "Compressor run time today"
+      },
+      "compressor_runtime_yesterday": {
+        "name": "Compressor run time yesterday"
+      },
+      "compressor_runtime_7d": {
+        "name": "Compressor run time 7 days"
+      },
+      "compressor_heating_runtime_today": {
+        "name": "Compressor heating today"
+      },
+      "compressor_heating_runtime_yesterday": {
+        "name": "Compressor heating yesterday"
+      },
+      "compressor_heating_runtime_7d": {
+        "name": "Compressor heating 7 days"
+      },
+      "electrical_energy_today": {
+        "name": "Electrical energy today"
+      },
+      "thermal_energy_today": {
+        "name": "Thermal energy today"
+      },
+      "cop_today": {
+        "name": "SPF today"
+      },
       "heating_limit_setting": {
         "name": "Heating limit set"
       },
@@ -346,6 +409,9 @@
       },
       "grid_control": {
         "name": "Grid operator control"
+      },
+      "compressor_heating": {
+        "name": "Compressor heating"
       }
     },
     "select": {

@@ -766,3 +766,32 @@ async def test_heating_limit_observed_sensor(
     assert state.attributes["unit_of_measurement"] == "°C"
     assert state.attributes["setting"] is None
     assert hass.states.get("sensor.wp_heating_limit_set").state == STATE_UNKNOWN
+
+
+async def test_operation_sensors(hass: HomeAssistant, fake_client, config_entry) -> None:
+    await _setup(hass, config_entry)
+    st = hass.states.get
+    # defaults: compressor on, demand heating
+    assert st("sensor.wp_state").state == "heating"
+    assert st("binary_sensor.wp_compressor_heating").state == STATE_ON
+    for key in ("today", "yesterday", "7_days"):
+        for name in ("heating_demand", "compressor_run_time", "compressor_heating"):
+            state = st(f"sensor.wp_{name}_{key}")
+            assert state is not None, f"{name}_{key}"
+            assert float(state.state) >= 0
+    assert st("sensor.wp_heating_demand_today").attributes["state_class"] == "total_increasing"
+    assert st("sensor.wp_heating_demand_yesterday").attributes["state_class"] == "measurement"
+    assert st("sensor.wp_electrical_energy_today").attributes["device_class"] == "energy"
+    assert st("sensor.wp_spf_today").state == STATE_UNKNOWN  # < 0.2 kWh so far
+    assert st("sensor.wp_heating_season_started").state == STATE_UNKNOWN
+
+    coordinator = config_entry.runtime_data
+    fake_client.input[25] = 0  # compressor off, demand still heating
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert st("sensor.wp_state").state == "heating_demand"
+    assert st("binary_sensor.wp_compressor_heating").state == STATE_OFF
+    fake_client.input[26] = 1
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert st("sensor.wp_state").state == "fault"

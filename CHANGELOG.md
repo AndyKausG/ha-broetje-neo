@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.0] - 2026-11-08
+
+- **Operation overview in the integration** (no package needed any more):
+  - "State" sensor (enum, translated): fault, price lock, utility lock, off, defrost, hot water, heating, cooling, compressor running, heating demand (compressor off, buffer still warm enough), DHW demand, summer, standby.
+  - "Compressor heating" binary sensor (compressor on and heating demand).
+  - Run times today / yesterday / 7 days for heating demand, compressor and compressor heating.
+  - Electrical and thermal energy today (from the power readings) and SPF today.
+  - Timestamps: heating demand last started, compressor heating last started, heating season started (first demand after more than 14 days without).
+  - All values come from the efficiency check's hourly data and survive a restart.
+- Compressor run time is counted with the same rule as the new run times (state at the start of each poll interval).
+- **Dashboard and card shipped with the integration** (`frontend/broetje-neo.js`, registered automatically, no HACS resource):
+  - Dashboard strategy `custom:broetje-neo`: complete wall tablet dashboard from one line of configuration; charts with ApexCharts if installed, otherwise with the built-in statistics/history cards (`charts: auto|apexcharts|core`).
+  - Card `custom:broetje-neo-card`: animated plant schema (refrigerant circuit, diverter valve, MKR1 heating curve, plain-language state text, German/English), respects "reduce motion".
+  - Entities are found via the integration (platform + translation key), independent of device name and language.
+- `extras/dashboard/broetje-neo-dashboard.yaml` and `extras/packages/broetje_neo_dashboard.yaml` are removed (`button-card` no longer needed). The analytics package stays optional (PV, automations).
+
 ## [0.5.0] - 2026-11-08
 
 - New sensor "Heating limit observed" (efficiency check, read-only). The heating limit is not available via Modbus, so it is learned from operation: the delayed outdoor temperature at each start of a heating demand is kept for 60 days; the highest value (from 3 starts) becomes a candidate and is confirmed once at least 6 hours at 1 K above it passed without heating demand in the last 14 days. The last confirmed value is kept through winter and follows a change on the controller in the next transition period. Attributes: candidate, confirmed_at, starts_60d, warm_hours_without_demand_14d.

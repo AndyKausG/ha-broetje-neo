@@ -466,3 +466,105 @@ def test_heating_limit_mismatch_hint() -> None:
     assert "heating_limit_mismatch" in ids(a.Context(heating_limit=15.0))
     assert "heating_limit_mismatch" not in ids(a.Context(heating_limit=16.5))
     assert "heating_limit_mismatch" not in ids(a.Context())
+
+
+# --- operation overview -----------------------------------------------------
+def _state(**kw):
+    base = dict(
+        fault=False,
+        evu_release=True,
+        price_lock=False,
+        mode="auto",
+        compressor=False,
+        demand="none",
+        defrost=False,
+        passive_cooling=False,
+    )
+    return a.plant_state(**(base | kw))
+
+
+def test_plant_state_priority() -> None:
+    assert _state() == "standby"
+    assert _state(demand="heating") == "heating_demand"  # buffer still warm enough
+    assert _state(demand="heating", compressor=True) == "heating"
+    assert _state(demand="hot_water", compressor=True) == "hot_water"
+    assert _state(demand="hot_water") == "dhw_demand"
+    assert _state(compressor=True) == "compressor_running"
+    assert _state(defrost=True, compressor=True, demand="heating") == "defrost"
+    # four-way valve during cooling is not a defrost
+    assert _state(defrost=True, compressor=True, demand="cooling") == "cooling"
+    assert _state(passive_cooling=True) == "cooling"
+    assert _state(mode="summer") == "summer"
+    assert _state(mode="off") == "off"
+    assert _state(evu_release=False, compressor=True) == "utility_lock"
+    assert _state(mode="evu_lock") == "utility_lock"
+    assert _state(price_lock=True, evu_release=False) == "price_lock"
+    assert _state(fault=True, price_lock=True) == "fault"
+    assert _state(compressor=None) is None
+    assert set(a.PLANT_STATES) >= {_state(), _state(fault=True)}
+
+
+def test_daily_runtimes_and_energy() -> None:
+    tr = a.Tracker()
+    day0 = T0 - T0 % DAY_S  # midnight (UTC as "local" day in this test)
+    # yesterday: 2 h heating demand, compressor on during the second hour
+    for i in range(0, 2 * 3600 + 60, 60):
+        ts = day0 - DAY_S + 6 * 3600 + i
+        comp = i >= 3600 and i < 2 * 3600
+        demand = "heating" if i < 2 * 3600 else "none"
+        tr.feed(
+            a.Sample(
+                ts=ts,
+                compressor=comp,
+                demand=demand,
+                p_el=2000 if comp else 10,
+                p_th=8.0 if comp else 0,
+            )
+        )
+    # today: 30 min hot water with compressor
+    for i in range(0, 1800 + 60, 60):
+        ts = day0 + 3 * 3600 + i
+        tr.feed(a.Sample(ts=ts, compressor=i < 1800, demand="hot_water", p_el=1500, p_th=4.5))
+    now = day0 + 3 * 3600 + 1860
+    d = tr.daily(now, day0, day0 - DAY_S)
+    assert d["heating_demand_h_yesterday"] == 2.0
+    assert d["compressor_heating_h_yesterday"] == 1.0
+    assert d["compressor_h_yesterday"] == pytest_approx(1.0)
+    assert d["heating_demand_h_today"] == 0.0
+    assert d["compressor_heating_h_today"] == 0.0
+    assert d["compressor_h_today"] == pytest_approx(0.5)
+    assert d["heating_demand_h_7d"] == 2.0
+    assert d["e_el_today"] == pytest_approx(0.75, 0.05)
+    assert d["e_th_today"] == pytest_approx(2.25, 0.05)
+    assert d["cop_today"] == pytest_approx(3.0, 0.05)
+    assert d["last_heat_start"] is None  # no off -> on edge seen yet (first sample)
+    assert d["last_comp_heat_start"] == day0 - DAY_S + 6 * 3600 + 3600
+
+
+def pytest_approx(value: float, rel: float = 0.02):
+    import pytest
+
+    return pytest.approx(value, rel=rel, abs=0.02)
+
+
+def test_heating_season_start() -> None:
+    tr = a.Tracker()
+    ts = T0
+    for demand in ("none", "heating", "none"):
+        tr.feed(a.Sample(ts=ts, demand=demand))
+        ts += 60
+    first = tr.season_start
+    assert first == T0 + 60
+    assert tr.last_heat_start == first
+    # short pause: same season
+    ts += 3 * DAY_S
+    tr.feed(a.Sample(ts=ts, demand="heating"))
+    tr.feed(a.Sample(ts=ts + 60, demand="none"))
+    assert tr.season_start == first
+    assert tr.last_heat_start == ts
+    # summer break > 14 days: new season
+    ts += 30 * DAY_S
+    tr.feed(a.Sample(ts=ts, demand="heating"))
+    assert tr.season_start == ts
+    tr2 = a.Tracker.from_dict(tr.to_dict())
+    assert tr2.season_start == ts and tr2.last_heat_start == ts

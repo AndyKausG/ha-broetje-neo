@@ -22,8 +22,6 @@ EXTRAS = Path(__file__).parent.parent / "extras"
 PACKAGE = EXTRAS / "packages" / "broetje_neo_analytics.yaml"
 CARD = EXTRAS / "lovelace" / "heat-pump-card.yaml"
 TOOL = EXTRAS / "tools" / "analyze_heatpump.py"
-DASH_PACKAGE = EXTRAS / "packages" / "broetje_neo_dashboard.yaml"
-DASHBOARD = EXTRAS / "dashboard" / "broetje-neo-dashboard.yaml"
 
 
 async def _setup_de(hass: HomeAssistant, entry: MockConfigEntry) -> MockConfigEntry:
@@ -45,8 +43,7 @@ async def _settle(hass: HomeAssistant) -> None:
 
 async def test_package_entity_ids_exist(hass: HomeAssistant, fake_client, config_entry) -> None:
     await _setup_de(hass, config_entry)
-    files = [PACKAGE, DASH_PACKAGE, *(EXTRAS / "lovelace").glob("*.yaml")]
-    files += (EXTRAS / "dashboard").glob("*.yaml")
+    files = [PACKAGE, *(EXTRAS / "lovelace").glob("*.yaml")]
     text = "".join(f.read_text(encoding="utf-8") for f in files)
     ids = set(
         re.findall(r"\b((?:sensor|binary_sensor|number|switch|select)\.brotje_neo_\w+)", text)
@@ -191,83 +188,3 @@ async def test_efficiency_card_renders(hass: HomeAssistant, fake_client, config_
         if line.strip() in ("***", "---") and i > 0:
             assert lines[i - 1].strip() == "", f"separator after text in line {i}"
     print(out)
-
-
-async def _setup_dashboard_packages(hass: HomeAssistant, config_entry) -> MockConfigEntry:
-    """Load the analytics and the dashboard package together (as in HA)."""
-    hass.config.language = "de"
-    ana = parse_yaml(PACKAGE.read_text(encoding="utf-8"))
-    dash = parse_yaml(DASH_PACKAGE.read_text(encoding="utf-8"))
-    assert await async_setup_component(hass, "sensor", {"sensor": ana["sensor"] + dash["sensor"]})
-    entry = await _setup_de(hass, config_entry)
-    conf = {
-        "template": ana["template"] + dash["template"],
-        "input_number": ana["input_number"],
-        "utility_meter": ana["utility_meter"],
-    }
-    for domain, value in conf.items():
-        assert await async_setup_component(hass, domain, {domain: value}), domain
-    await _settle(hass)
-    return entry
-
-
-async def test_dashboard_entity_ids_exist(hass: HomeAssistant, fake_client, config_entry) -> None:
-    await _setup_dashboard_packages(hass, config_entry)
-    text = DASHBOARD.read_text(encoding="utf-8")
-    # commented-out optional cards are not checked
-    text = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
-    ids = set(
-        re.findall(r"\b((?:sensor|binary_sensor|input_number)\.(?:wpd|wpa|brotje_neo)_\w+)", text)
-    )
-    assert "sensor.wpd_status" in ids
-    missing = [i for i in sorted(ids) if hass.states.get(i) is None]
-    assert not missing, missing
-
-
-def test_dashboard_yaml_structure() -> None:
-    conf = parse_yaml(DASHBOARD.read_text(encoding="utf-8"))
-    view = conf["views"][0]
-    assert view["type"] == "sections"
-    cards = [c for s in view["sections"] for c in s["cards"]]
-    types = {c["type"] for c in cards}
-    assert {"custom:apexcharts-card", "custom:button-card"} <= types
-    schema = next(c for c in cards if c["type"] == "custom:button-card")
-    js = schema["custom_fields"]["schema"]
-    assert js.strip().startswith("[[[") and js.strip().endswith("]]]")
-    assert js.count("]]]") == 1
-    # every entity the schema reads must trigger a redraw
-    used = set(re.findall(r"'((?:sensor|binary_sensor)\.\w+)'", js))
-    assert used <= set(schema["triggers_update"]), used - set(schema["triggers_update"])
-
-
-async def test_dashboard_status(hass: HomeAssistant, fake_client, config_entry) -> None:
-    entry = await _setup_dashboard_packages(hass, config_entry)
-    coordinator = entry.runtime_data
-
-    async def status(**regs: int) -> str:
-        for addr, value in regs.items():
-            fake_client.input[int(addr[1:])] = value
-        await coordinator.async_refresh()
-        await _settle(hass)
-        code = hass.states.get("sensor.wpd_status_code").state
-        assert hass.states.get("sensor.wpd_status").attributes["code"] == code
-        return code
-
-    # defaults: compressor on, demand heating
-    assert await status() == "heizen"
-    assert hass.states.get("sensor.wpd_status").state == "Heizen"
-    assert hass.states.get("binary_sensor.wpd_verdichter_heizen").state == "on"
-    # demand but buffer is warm enough: compressor off
-    assert await status(r25=0) == "heizanforderung"
-    assert hass.states.get("sensor.wpd_status").state == "Heizanforderung"
-    assert hass.states.get("binary_sensor.wpd_verdichter_heizen").state == "off"
-    assert await status(r41=30, r25=1) == "warmwasser"
-    assert await status(r27=1) == "abtauen"
-    # four-way valve during cooling is not a defrost
-    assert await status(r41=10) == "kuehlen"
-    assert await status(r27=0, r41=0, r25=0) == "standby"
-    assert await status(r32=0) == "evu_sperre"
-    assert await status(r32=1, r26=1) == "stoerung"
-    assert hass.states.get("sensor.wpd_status").state == "Störung"
-    fake_client.holding[100] = 3
-    assert await status(r26=0) == "sommer"

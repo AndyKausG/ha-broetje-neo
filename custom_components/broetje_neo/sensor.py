@@ -27,7 +27,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.util import dt as dt_util
 
-from . import registers as r
+from . import advisor, registers as r
 from .coordinator import BroetjeConfigEntry, BroetjeNeoCoordinator
 from .entity import BroetjeNeoEntity
 
@@ -330,12 +330,117 @@ def _check(
     )
 
 
+def _plant_state(c: BroetjeNeoCoordinator) -> StateType:
+    def flag(reg: r.Register) -> bool | None:
+        raw = c.raw(reg)
+        return None if raw is None else raw != 0
+
+    return advisor.plant_state(
+        fault=flag(r.FAULT),
+        evu_release=flag(r.EVU_RELEASE),
+        price_lock=c.price_lock_active,
+        mode=r.OPERATING_MODES.get(c.raw(r.OPERATING_MODE)),
+        compressor=flag(r.HEAT_PUMP_RUNNING),
+        demand=r.DEMANDS.get(c.raw(r.DEMAND)),
+        defrost=flag(r.FOUR_WAY_VALVE),
+        passive_cooling=flag(r.PASSIVE_COOLING),
+    )
+
+
+def _day(key: str) -> ValueFn:
+    return lambda c: c.daily.get(key)
+
+
+def _ts(key: str) -> ValueFn:
+    def fn(c: BroetjeNeoCoordinator) -> Any:
+        v = c.daily.get(key)
+        return None if v is None else dt_util.utc_from_timestamp(v)
+
+    return fn
+
+
+def _runtime(key: str, total: bool = False) -> BroetjeSensorDescription:
+    return BroetjeSensorDescription(
+        key=key,
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.HOURS,
+        state_class=(SensorStateClass.TOTAL_INCREASING if total else SensorStateClass.MEASUREMENT),
+        suggested_display_precision=1,
+        value_fn=_day(_RUNTIME_SRC[key]),
+    )
+
+
+_RUNTIME_SRC = {
+    f"{name}_{period}": f"{src}_{period}"
+    for name, src in (
+        ("heating_demand", "heating_demand_h"),
+        ("compressor_runtime", "compressor_h"),
+        ("compressor_heating_runtime", "compressor_heating_h"),
+    )
+    for period in ("today", "yesterday", "7d")
+}
+
+
 def _heat_limit_attr(c: BroetjeNeoCoordinator) -> dict[str, Any]:
     d = dict(c.heat_limit_detail)
     d["setting"] = c.heating_limit_setting
     if d.get("confirmed_at") is not None:
         d["confirmed_at"] = dt_util.utc_from_timestamp(d["confirmed_at"]).isoformat()
     return d
+
+
+# Operation overview: plant state, run times and day values (from the tracker)
+OPERATION_SENSORS: tuple[BroetjeSensorDescription, ...] = (
+    BroetjeSensorDescription(
+        key="plant_state",
+        device_class=SensorDeviceClass.ENUM,
+        options=list(advisor.PLANT_STATES),
+        icon="mdi:heat-pump-outline",
+        value_fn=_plant_state,
+    ),
+    BroetjeSensorDescription(
+        key="heating_demand_last_start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        icon="mdi:radiator",
+        value_fn=_ts("last_heat_start"),
+    ),
+    BroetjeSensorDescription(
+        key="compressor_heating_last_start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        icon="mdi:heat-pump",
+        value_fn=_ts("last_comp_heat_start"),
+    ),
+    BroetjeSensorDescription(
+        key="heating_season_start",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        icon="mdi:calendar-start",
+        value_fn=_ts("season_start"),
+    ),
+    *(_runtime(key, total=key.endswith("_today")) for key in _RUNTIME_SRC),
+    BroetjeSensorDescription(
+        key="electrical_energy_today",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=2,
+        value_fn=_day("e_el_today"),
+    ),
+    BroetjeSensorDescription(
+        key="thermal_energy_today",
+        device_class=SensorDeviceClass.ENERGY,
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=2,
+        value_fn=_day("e_th_today"),
+    ),
+    BroetjeSensorDescription(
+        key="cop_today",
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=2,
+        icon="mdi:calendar-today",
+        value_fn=_day("cop_today"),
+    ),
+)
 
 
 ADVISOR_SENSORS: tuple[BroetjeSensorDescription, ...] = (
@@ -433,7 +538,9 @@ async def async_setup_entry(
 ) -> None:
     """Set up sensors."""
     coordinator = entry.runtime_data
-    async_add_entities(BroetjeNeoSensor(coordinator, d) for d in SENSORS + ADVISOR_SENSORS)
+    async_add_entities(
+        BroetjeNeoSensor(coordinator, d) for d in SENSORS + OPERATION_SENSORS + ADVISOR_SENSORS
+    )
 
 
 class BroetjeNeoSensor(BroetjeNeoEntity, SensorEntity):

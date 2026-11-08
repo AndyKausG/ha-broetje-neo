@@ -15,6 +15,7 @@ Modbus TCP, installed via HACS). Read this first.
 | `custom_components/broetje_neo/{sensor,binary_sensor,number,select,switch}.py` | Entities, read from the coordinator only |
 | `custom_components/broetje_neo/manifest.json` | **Version source of truth** |
 | `custom_components/broetje_neo/brand/` | Logo / icon (sources in `docs/brand/`) |
+| `custom_components/broetje_neo/frontend/` | Bundled card + dashboard strategy (plain JS, no build step), served and registered by `frontend/__init__.py`. Keep `VERSION` equal to the manifest version; entities are looked up by translation key |
 | `scripts/gen_translations.py` | Generates `strings.json` and `translations/{de,en}.json`. Never edit those by hand |
 | `extras/` | HA package, analysis script, dashboard cards |
 | `docs/TECHNIK.md` | Technical documentation (German) |
