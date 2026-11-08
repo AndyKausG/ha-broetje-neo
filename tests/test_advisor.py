@@ -16,6 +16,7 @@ def _feed_days(
     off_min: int = 45,
     room: float | None = 21.0,
     room_fn=None,
+    rooms_fn=None,
     rl_fn=lambda t: 27 - 0.2 * t,
     dhw_cop: float = 3.0,
 ) -> float:
@@ -40,6 +41,7 @@ def _feed_days(
                 defrost=False,
                 superheat=6.0,
                 room=room_fn(t_out) if room_fn else room,
+                rooms=rooms_fn(t_out) if rooms_fn else None,
                 room_set=21.0,
                 rl_set=rl_fn(t_out),
                 e_th_total=e_el * 3.6,
@@ -192,3 +194,45 @@ def test_room_set_high_only_without_room_sensor() -> None:
     assert all(h.id != "room_set_high" for h in with_sensor)
     h = next(h for h in without if h.id == "room_set_high")
     assert "Nicht pauschal senken" in h.suggestion
+
+
+def _floors(eg: float, og: float, dg: float):
+    return lambda t: {"sensor.eg": eg, "sensor.og": og, "sensor.dg": dg}
+
+
+def test_mfh_one_floor_cold_blocks_lowering() -> None:
+    tr = a.Tracker()
+    now = _feed_days(
+        tr, 5, flow_fn=lambda t: 30 - 0.5 * t, room=22.0, rooms_fn=_floors(22.8, 22.4, 20.0)
+    )
+    ctx = a.Context(room_setpoint=21.0, has_room_sensor=True)
+    rooms = tr.room_detail(now)
+    assert [r["entity_id"] for r in rooms] == ["sensor.dg", "sensor.og", "sensor.eg"]
+    hints = a.advise(tr.figures(now), ctx, 5, rooms)
+    ids = [h.id for h in hints]
+    assert "curve_lower" not in ids  # mean is too warm, but the attic is cold
+    cold = _hint(hints, "room_cold")
+    assert cold is not None and "sensor.dg" in cold.finding
+    assert "rooms_uneven" in ids
+    assert tr.figures(now)["room_spread_7d"] == 2.8
+
+
+def test_mfh_all_floors_warm_allows_lowering() -> None:
+    tr = a.Tracker()
+    now = _feed_days(
+        tr, 5, flow_fn=lambda t: 30 - 0.5 * t, room=22.0, rooms_fn=_floors(22.4, 22.0, 21.7)
+    )
+    ctx = a.Context(room_setpoint=21.0, has_room_sensor=True)
+    rooms = [{**r, "name": r["entity_id"].split(".")[1].upper()} for r in tr.room_detail(now)]
+    h = _hint(a.advise(tr.figures(now), ctx, 5, rooms), "curve_lower")
+    assert h is not None
+    assert "kälteste Raum (DG)" in h.finding
+    assert "+0,7 K" in h.finding  # decided by the coldest floor, not the mean
+    assert "Mehrfamilienhaus" in h.suggestion
+
+
+def test_rooms_persisted() -> None:
+    tr = a.Tracker()
+    now = _feed_days(tr, 3, flow_fn=lambda t: 30, rooms_fn=_floors(21, 21.5, 22))
+    tr2 = a.Tracker.from_dict(tr.to_dict())
+    assert tr2.room_detail(now) == tr.room_detail(now)

@@ -104,6 +104,8 @@ ENTITIES: dict[str, dict[str, tuple[str, str]]] = {
             "Heizkurve RL-Soll bei minus 15 Grad",
         ),
         "room_dev_7d": ("Room vs. setpoint 7 days", "Raum Abweichung vom Soll 7 Tage"),
+        "room_dev_min_7d": ("Coldest room vs. setpoint 7 days", "Kältester Raum Abweichung 7 Tage"),
+        "room_spread_7d": ("Room temperature spread 7 days", "Raum Unterschied 7 Tage"),
         "heating_spread_7d": ("Heating spread 7 days", "Spreizung Heizen 7 Tage"),
         "room_avg_7d": ("Room temperature 7 days", "Raumtemperatur 7 Tage"),
         "spf_30d": ("SPF 30 days", "Arbeitszahl 30 Tage"),

@@ -129,6 +129,7 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         self._store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.advisor")
         self.figures: dict[str, float | None] = {}
         self.hints: list[advisor.Hint] = []
+        self.rooms: list[dict[str, Any]] = []
         self.advice_status: str = "collecting"
         self.data_days: float = 0.0
 
@@ -190,14 +191,18 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         """Persist collected operating data now."""
         await self._store.async_save(self.tracker.to_dict())
 
-    def _room_temperature(self) -> float | None:
-        values = [
-            v
-            for eid in self.room_sensors
-            if (st := self.hass.states.get(eid)) is not None
-            and (v := advisor.safe_float(st.state)) is not None
-        ]
-        return round(sum(values) / len(values), 2) if values else None
+    def _room_temperatures(self) -> dict[str, float]:
+        """Current value of each configured room sensor."""
+        out: dict[str, float] = {}
+        for eid in self.room_sensors:
+            st = self.hass.states.get(eid)
+            if st is not None and (v := advisor.safe_float(st.state)) is not None:
+                out[eid] = v
+        return out
+
+    def _room_name(self, eid: str) -> str:
+        st = self.hass.states.get(eid)
+        return st.name if st is not None else eid
 
     def _update_advice(self, data: RegisterData) -> None:
         inp, hold = data[Table.INPUT], data[Table.HOLDING]
@@ -211,6 +216,7 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             return None if raw is None else raw != 0
 
         suction, evap = val(r.T_SUCTION_GAS), val(r.T_EVAPORATION)
+        rooms = self._room_temperatures()
         now = time.time()
         self.tracker.feed(
             advisor.Sample(
@@ -225,7 +231,8 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
                 demand=r.DEMANDS.get(raw_value(r.DEMAND, inp)),
                 defrost=flag(r.FOUR_WAY_VALVE),
                 superheat=None if None in (suction, evap) else suction - evap,
-                room=self._room_temperature(),
+                room=round(sum(rooms.values()) / len(rooms), 2) if rooms else None,
+                rooms=rooms or None,
                 e_th_total=val(r.E_TH_TOTAL),
                 e_el_total=val(r.E_EL_TOTAL),
                 e_th_heat=val(r.E_TH_HEATING),
@@ -245,7 +252,11 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             fault=bool(flag(r.FAULT)),
             has_room_sensor=bool(self.room_sensors),
         )
-        hints = advisor.advise(self.figures, ctx, self.data_days)
+        self.rooms = [
+            {**room, "name": self._room_name(room["entity_id"])}
+            for room in self.tracker.room_detail(now)
+        ]
+        hints = advisor.advise(self.figures, ctx, self.data_days, self.rooms)
         if self.data_days < advisor.MIN_DAYS:
             # only immediate findings until enough data is collected
             hints = [

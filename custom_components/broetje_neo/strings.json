@@ -233,6 +233,12 @@
       "room_dev_7d": {
         "name": "Room vs. setpoint 7 days"
       },
+      "room_dev_min_7d": {
+        "name": "Coldest room vs. setpoint 7 days"
+      },
+      "room_spread_7d": {
+        "name": "Room temperature spread 7 days"
+      },
       "heating_spread_7d": {
         "name": "Heating spread 7 days"
       },

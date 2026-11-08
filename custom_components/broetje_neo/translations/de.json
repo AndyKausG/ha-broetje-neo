@@ -233,6 +233,12 @@
       "room_dev_7d": {
         "name": "Raum Abweichung vom Soll 7 Tage"
       },
+      "room_dev_min_7d": {
+        "name": "Kältester Raum Abweichung 7 Tage"
+      },
+      "room_spread_7d": {
+        "name": "Raum Unterschied 7 Tage"
+      },
       "heating_spread_7d": {
         "name": "Spreizung Heizen 7 Tage"
       },

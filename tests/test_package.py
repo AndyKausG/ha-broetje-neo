@@ -166,12 +166,21 @@ async def test_efficiency_card_renders(hass: HomeAssistant, fake_client, config_
     from homeassistant.helpers.template import Template
 
     fake_client.input[26] = 1  # fault -> at least one hint
+    hass.states.async_set("sensor.eg", "22.0", {"friendly_name": "Erdgeschoss"})
+    hass.states.async_set("sensor.dg", "20.5", {"friendly_name": "Dachgeschoss"})
+    config_entry = MockConfigEntry(
+        domain=config_entry.domain,
+        data=config_entry.data,
+        options={**config_entry.options, "room_sensors": ["sensor.eg", "sensor.dg"]},
+    )
     await _setup_de(hass, config_entry)
     card = parse_yaml((EXTRAS / "lovelace" / "effizienz-check.yaml").read_text(encoding="utf-8"))
     out = Template(card["cards"][0]["content"], hass).async_render(parse_result=False)
     assert "Sammle Daten" in out
     assert "Störung aktiv" in out
     assert "Vorschlag:" in out
+    assert "- Dachgeschoss: 20.5 °C" in out
+    assert out.index("Dachgeschoss") < out.index("Erdgeschoss")
     # no setext headings: a separator must never directly follow a text line
     lines = out.splitlines()
     for i, line in enumerate(lines):

@@ -318,6 +318,7 @@ Ausgabe je Hinweis: `id`, `severity` (info/warning), Titel, Befund, Vorschlag, w
 | fault | R26 ≠ 0 | Code ablesen, Fachbetrieb, nicht wiederholt quittieren | – |
 | curve_lower | Raum > Soll + 0,5 K | kalt-mild > 0,7 K: „RL Soll −15°C“ −1…2 K; mild-kalt > 0,7 K: „RL Soll 18/0°C“ −1…2 K; sonst Raumsoll −0,5…1 K | BA Kap. 6 (Schritte 1–2 K, 1–2 Tage), DUH (≈ 2,5 %/K) |
 | room_cold | Raum < Soll − 0,7 K | nicht senken, Ventile/Abgleich prüfen, dann +1 K | BA |
+| rooms_uneven | ≥ 2 Raumsensoren, Unterschied der 7-Tage-Mittel > 1,5 K | Abgleich/Ventile, warme Etagen drosseln | – |
 | curve_above_factory | kein Raumsensor, Fußbodenheizung, RL-Soll(0 °C) > 30 °C | Raumsensor ergänzen, schrittweise senken | BA Werkseinstellung 22/27/30 °C |
 | room_set_high | R101 > 21,5 °C und kein Raumsensor | erst Raumsensor, nicht pauschal senken (R101 = Parallelverschiebung) | BA |
 | heating_limit | > 6 h Heizbetrieb bei ≥ 16 °C in 7 d | „Heizgrenze“ prüfen, ca. 15 °C | DUH |
@@ -331,6 +332,12 @@ Ausgabe je Hinweis: `id`, `severity` (info/warning), Titel, Befund, Vorschlag, w
 | spf_low | Arbeitszahl Heizen 30 d < 3,0 | Hauptstellhebel | Faustregel |
 | no_room_sensor | keine Raumsensoren konfiguriert | Sensor wählen | – |
 | price_lock_ineffective | Wirkungskontrolle 4.2.1 fehlgeschlagen | Verdrahtung prüfen lassen | – |
+
+**Mehrere Raumsensoren:** Jeder Sensor wird pro Stunde einzeln gespeichert
+(`Bucket.rooms`). Bei zwei oder mehr Sensoren entscheidet der **kälteste Raum**:
+`curve_lower` nur, wenn dessen Abweichung > 0,5 K ist; `room_cold`, sobald sie < −0,7 K ist.
+Steil/Fußpunkt wird mit dem Minimum der Kalt- bzw. Mild-Abweichungen aller Räume bewertet.
+Die Raumliste steht im Attribut `rooms` des Sensors „Effizienz-Check“.
 
 Alle Schwellen sind Richtwerte und stehen als Konstanten in `advisor.py`.
 

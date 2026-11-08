@@ -53,7 +53,8 @@ class Sample:
     demand: str | None = None  # "heating", "hot_water", ...
     defrost: bool | None = None
     superheat: float | None = None
-    room: float | None = None
+    room: float | None = None  # mean of all room sensors
+    rooms: dict[str, float] | None = None  # per sensor (e.g. one per floor)
     e_th_total: float | None = None
     e_el_total: float | None = None
     e_th_heat: float | None = None
@@ -87,6 +88,8 @@ class Bucket:
     rs_n: int = 0
     dev_sum: float = 0.0  # room - room setpoint
     dev_n: int = 0
+    # per room sensor: [temp_sum, temp_n, dev_sum, dev_n]
+    rooms: dict[str, list[float]] = field(default_factory=dict)
 
     @property
     def t_out(self) -> float | None:
@@ -165,6 +168,13 @@ class Tracker:
             if s.room_set is not None:
                 b.dev_sum += s.room - s.room_set
                 b.dev_n += 1
+        for eid, v in (s.rooms or {}).items():
+            acc = b.rooms.setdefault(eid, [0.0, 0, 0.0, 0])
+            acc[0] += v
+            acc[1] += 1
+            if s.room_set is not None:
+                acc[2] += v - s.room_set
+                acc[3] += 1
         x = s.t_out_delayed if s.t_out_delayed is not None else s.t_out
         if s.rl_set is not None and x is not None:
             b.rs_sum += s.rl_set
@@ -257,9 +267,48 @@ class Tracker:
         dev_n = sum(b.dev_n for b in d7)
         fig["room_dev_7d"] = round(sum(b.dev_sum for b in d7) / dev_n, 2) if dev_n else None
         fig |= self._room_dev_by_weather(now)
+        rooms = [r for r in self.room_detail(now) if r["dev_7d"] is not None]
+        fig["room_dev_min_7d"] = min(r["dev_7d"] for r in rooms) if rooms else None
+        fig["room_spread_7d"] = (
+            round(max(r["avg_7d"] for r in rooms) - min(r["avg_7d"] for r in rooms), 1)
+            if len(rooms) >= 2
+            else None
+        )
         fig |= self._curve(now)
         fig |= self._spf(now)
         return fig
+
+    def room_detail(self, now: float) -> list[dict[str, Any]]:
+        """Per room sensor: 7-day mean, deviation, deviation in cold/mild hours."""
+        d7 = {b.hour for b in self._window(now, 7 * DAY)}
+        acc: dict[str, dict[str, Any]] = {}
+        for b in self._window(now, KEEP_S):
+            for eid, (t_sum, t_n, d_sum, d_n) in b.rooms.items():
+                r = acc.setdefault(eid, {"t": [0.0, 0], "d": [0.0, 0], "cold": [], "mild": []})
+                if b.hour in d7:
+                    r["t"][0] += t_sum
+                    r["t"][1] += t_n
+                    r["d"][0] += d_sum
+                    r["d"][1] += d_n
+                if d_n and b.t_out is not None:
+                    if b.t_out < 3:
+                        r["cold"].append(d_sum / d_n)
+                    elif b.t_out > 8:
+                        r["mild"].append(d_sum / d_n)
+        out = []
+        for eid, r in acc.items():
+            if not r["t"][1]:
+                continue
+            out.append(
+                {
+                    "entity_id": eid,
+                    "avg_7d": round(r["t"][0] / r["t"][1], 1),
+                    "dev_7d": round(r["d"][0] / r["d"][1], 2) if r["d"][1] else None,
+                    "dev_cold": round(st.fmean(r["cold"]), 2) if len(r["cold"]) >= 12 else None,
+                    "dev_mild": round(st.fmean(r["mild"]), 2) if len(r["mild"]) >= 12 else None,
+                }
+            )
+        return sorted(out, key=lambda r: r["avg_7d"])
 
     def _room_dev_by_weather(self, now: float) -> dict[str, float | None]:
         """Room deviation from setpoint in cold (< 3 °C) and mild (> 8 °C) hours."""
@@ -356,7 +405,12 @@ def _fmt(v: float) -> str:
     return f"{v:.1f}".replace(".", ",")
 
 
-def advise(fig: dict[str, float | None], ctx: Context, data_days: float) -> list[Hint]:
+def advise(
+    fig: dict[str, float | None],
+    ctx: Context,
+    data_days: float,
+    rooms: list[dict[str, Any]] | None = None,
+) -> list[Hint]:
     """Derive hints from figures. Ordered: warnings first."""
     hints: list[Hint] = []
     add = hints.append
@@ -384,6 +438,24 @@ def advise(fig: dict[str, float | None], ctx: Context, data_days: float) -> list
     room_set = ctx.room_setpoint
     dev = fig.get("room_dev_7d")
     dev_cold, dev_mild = fig.get("room_dev_cold"), fig.get("room_dev_mild")
+    rooms = [r for r in (rooms or []) if r.get("dev_7d") is not None]
+    multi = len(rooms) >= 2
+    room_txt = f"Räume im Mittel {_fmt(room)} °C" if room is not None else ""
+    if multi:
+        # Several sensors (e.g. one per floor in a multi-family house): the
+        # coldest room decides. Lower only if every room is too warm, warn as
+        # soon as one room is too cold.
+        coldest = min(rooms, key=lambda r: r["dev_7d"])
+        dev = coldest["dev_7d"]
+        colds = [r["dev_cold"] for r in rooms if r["dev_cold"] is not None]
+        milds = [r["dev_mild"] for r in rooms if r["dev_mild"] is not None]
+        dev_cold = min(colds) if len(colds) == len(rooms) else None
+        dev_mild = min(milds) if len(milds) == len(rooms) else None
+        room_txt = (
+            "Räume: "
+            + ", ".join(f"{r.get('name', r['entity_id'])} {_fmt(r['avg_7d'])} °C" for r in rooms)
+            + f". Maßgeblich ist der kälteste Raum ({coldest.get('name', coldest['entity_id'])})"
+        )
     rl0, rl15, rl18 = fig.get("rl_set_0"), fig.get("rl_set_m15"), fig.get("rl_set_18")
     curve_txt = ""
     if rl0 is not None:
@@ -428,9 +500,16 @@ def advise(fig: dict[str, float | None], ctx: Context, data_days: float) -> list
                     "curve_lower",
                     "info",
                     "Heizkurve kann gesenkt werden",
-                    f"Räume im Mittel {_fmt(room)} °C, eingestellt {_fmt(room_set)} °C "
-                    f"(+{_fmt(dev)} K)." + curve_txt,
-                    todo + " " + method,
+                    f"{room_txt}, eingestellt {_fmt(room_set)} °C (+{_fmt(dev)} K)." + curve_txt,
+                    todo
+                    + " "
+                    + method
+                    + (
+                        " Im Mehrfamilienhaus: Bewohner vorher informieren und bei vermieteten "
+                        "Wohnungen die üblichen Mindesttemperaturen beachten."
+                        if multi
+                        else ""
+                    ),
                     "selbst",
                 )
             )
@@ -440,8 +519,7 @@ def advise(fig: dict[str, float | None], ctx: Context, data_days: float) -> list
                     "room_cold",
                     "warning",
                     "Räume erreichen die Solltemperatur nicht",
-                    f"Räume im Mittel {_fmt(room)} °C, eingestellt {_fmt(room_set)} °C "
-                    f"({_fmt(dev)} K)." + curve_txt,
+                    f"{room_txt}, eingestellt {_fmt(room_set)} °C ({_fmt(dev)} K)." + curve_txt,
                     "Heizkurve nicht senken. Zuerst prüfen: Ventile/Thermostate offen, "
                     "Fenster, Luft im System. Danach Raumsoll (HKR) oder "
                     f"{MENU_CURVE} um 1 K anheben. Hilft das nicht, Fachbetrieb "
@@ -449,7 +527,27 @@ def advise(fig: dict[str, float | None], ctx: Context, data_days: float) -> list
                     "selbst oder Fachbetrieb",
                 )
             )
-    elif rl0 is not None and ctx.heating_system == "underfloor":
+    if multi:
+        spread_rooms = fig.get("room_spread_7d")
+        if spread_rooms is not None and spread_rooms > 1.5:
+            warmest = max(rooms, key=lambda r: r["avg_7d"])
+            add(
+                Hint(
+                    "rooms_uneven",
+                    "info",
+                    "Räume/Etagen unterschiedlich warm",
+                    f"Unterschied {_fmt(spread_rooms)} K zwischen "
+                    f"{coldest.get('name', coldest['entity_id'])} ({_fmt(coldest['avg_7d'])} °C) und "
+                    f"{warmest.get('name', warmest['entity_id'])} ({_fmt(warmest['avg_7d'])} °C).",
+                    "Die Heizkurve muss sich nach dem kältesten Raum richten, wärmere Räume "
+                    "verschwenden dann Energie. Ursache ist meist die Wasserverteilung: "
+                    "hydraulischer Abgleich, Ventile/Stellantriebe, Durchfluss je Etage. "
+                    "Selbst: Raumregler der warmen Etagen prüfen. Fachbetrieb: Abgleich.",
+                    "selbst oder Fachbetrieb",
+                )
+            )
+    measured = ctx.has_room_sensor and dev is not None
+    if not measured and rl0 is not None and ctx.heating_system == "underfloor":
         factory = FACTORY_CURVE_UNDERFLOOR[0.0]
         if rl0 > factory + 3:
             add(

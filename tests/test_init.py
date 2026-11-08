@@ -576,3 +576,19 @@ async def test_own_lock_is_not_grid_lock(hass: HomeAssistant, fake_client, confi
     await config_entry.runtime_data.async_refresh()
     await hass.async_block_till_done()
     assert hass.states.get("binary_sensor.wp_grid_operator_control").state == STATE_OFF
+
+
+async def test_multiple_room_sensors(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    hass.states.async_set("sensor.eg", "22.0", {"friendly_name": "EG"})
+    hass.states.async_set("sensor.dg", "20.0", {"friendly_name": "DG"})
+    entry = MockConfigEntry(
+        domain=readonly_entry.domain,
+        data=readonly_entry.data,
+        options={"room_sensors": ["sensor.eg", "sensor.dg"]},
+        unique_id="mfh",
+    )
+    await _setup(hass, entry)
+    attrs = hass.states.get("sensor.wp_efficiency_check").attributes
+    assert [(r["name"], r["avg_7d"]) for r in attrs["rooms"]] == [("DG", 20.0), ("EG", 22.0)]
+    assert hass.states.get("sensor.wp_room_temperature_7_days").state == "21.0"
+    assert hass.states.get("sensor.wp_room_temperature_spread_7_days").state == "2.0"

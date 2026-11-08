@@ -267,6 +267,7 @@ def _hints_attr(c: BroetjeNeoCoordinator) -> dict[str, Any]:
             }
             for h in c.hints
         ],
+        "rooms": c.rooms,
         "note": "Vorschläge ohne Gewähr. Änderungen am Bedienteil oder mit dem Fachbetrieb.",
     }
 
@@ -318,6 +319,8 @@ ADVISOR_SENSORS: tuple[BroetjeSensorDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
     ),
     _check("room_dev_7d", UnitOfTemperature.KELVIN, precision=1),
+    _check("room_dev_min_7d", UnitOfTemperature.KELVIN, precision=1),
+    _check("room_spread_7d", UnitOfTemperature.KELVIN, precision=1),
     _check("heating_spread_7d", UnitOfTemperature.KELVIN),
     _check(
         "room_avg_7d",

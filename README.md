@@ -113,6 +113,21 @@ die Raumtemperatur getrennt bei Kälte und bei mildem Wetter:
 
 Expertenmenüs (Techniker/Fachmann) werden nie vorgeschlagen.
 
+### Mehrere Raumsensoren / Mehrfamilienhaus
+
+Wähle einen Sensor pro Etage bzw. Wohnung, möglichst im meistgenutzten Raum. Jeder
+Sensor wird einzeln ausgewertet:
+
+- **Senken** wird nur vorgeschlagen, wenn **alle** Räume über dem Soll liegen.
+  Maßgeblich ist der kälteste Raum, nicht der Mittelwert.
+- **Zu kalt** meldet der Check, sobald **ein** Raum zu kalt ist, und nennt ihn.
+- **Etagen unterschiedlich warm** (mehr als 1,5 K): eigener Hinweis. Die Ursache ist meist
+  die Wasserverteilung (hydraulischer Abgleich, Ventile), nicht die Heizkurve.
+- Die Karte listet alle Räume mit ihrer Abweichung vom Soll, den kältesten zuerst.
+
+Im vermieteten Mehrfamilienhaus vor jeder Absenkung die Bewohner informieren und die
+üblichen Mindesttemperaturen für Wohnungen beachten.
+
 | Prüfung | Grundlage |
 |---------|-----------|
 | Heizkurve: zu hoch, zu steil oder Fußpunkt zu hoch (mit Raumsensor) | Bedienungsanleitung BLW NEO: Schritte 1–2 K, je 1–2 Tage beobachten; DUH-Ratgeber: 1 K ≈ 2,5 % Strom |
