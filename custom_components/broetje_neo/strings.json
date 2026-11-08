@@ -40,7 +40,7 @@
         "data_description": {
           "allow_write": "Operating mode (not 'off') and setpoints within safe limits. Off = read-only.",
           "allow_pv": "PV power target (reg. 125) incl. watchdog. The NEO-RKM decides itself when and how strongly the heat pump runs.",
-          "allow_price_lock": "Pause the heat pump during expensive hours like a utility lock. Max. duration below, min. 60 min pause, not below -10 °C outdoor."
+          "allow_price_lock": "Pause the heat pump during expensive hours like a utility lock. Max. 2 h per lock and 6 h per day, min. 60 min pause, not below -10 °C outdoor."
         }
       }
     }

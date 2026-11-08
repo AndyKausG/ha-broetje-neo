@@ -40,7 +40,7 @@
         "data_description": {
           "allow_write": "Betriebsart (nicht 'Aus') und Sollwerte in sicheren Grenzen. Aus = nur lesen.",
           "allow_pv": "PV-Leistungsvorgabe (Reg. 125) inkl. Watchdog. Wann und wie stark die WP läuft, entscheidet das NEO-RKM selbst.",
-          "allow_price_lock": "Wärmepumpe bei hohen Strompreisen wie bei einer EVU-Sperre pausieren. Max. Dauer siehe unten, mind. 60 min Pause, nicht unter -10 °C außen."
+          "allow_price_lock": "Wärmepumpe bei hohen Strompreisen wie bei einer EVU-Sperre pausieren. Max. 2 h am Stück und 6 h pro Tag, mind. 60 min Pause, nicht unter -10 °C außen."
         }
       }
     }

@@ -406,3 +406,24 @@ async def test_fault_hint_immediately(hass: HomeAssistant, fake_client, readonly
     st = hass.states.get("sensor.wp_efficiency_check")
     assert st.state == "collecting"
     assert any(h["id"] == "fault" for h in st.attributes["hints"])
+
+
+async def test_price_lock_daily_limit(hass: HomeAssistant, fake_client, config_entry) -> None:
+    await _setup(hass, config_entry)
+    coordinator = config_entry.runtime_data
+    coordinator._locked_today_s()  # noqa: SLF001 - init day
+    coordinator._lock_day_s = 6 * 3600  # noqa: SLF001
+    with pytest.raises(HomeAssistantError, match="Tageslimit"):
+        await _lock(hass, True)
+    assert fake_client.holding[150] == 0
+
+
+async def test_price_lock_option_capped(hass: HomeAssistant, fake_client, config_entry) -> None:
+    entry = MockConfigEntry(
+        domain=config_entry.domain,
+        data=config_entry.data,
+        options={**config_entry.options, "price_lock_max_minutes": 300},
+        unique_id="cap",
+    )
+    await _setup(hass, entry)
+    assert entry.runtime_data.price_lock_max_s == 120 * 60

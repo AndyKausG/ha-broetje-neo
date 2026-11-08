@@ -139,7 +139,7 @@ Integration → **Konfigurieren**:
 | Einstellungen schreiben erlauben | aus | Betriebsart (ohne „Aus“) und Sollwerte in den sicheren Grenzen |
 | PV-/Leistungssteuerung erlauben | aus | PV-Überschuss an die Wärmepumpe melden |
 | Preissperre erlauben | aus | Wärmepumpe bei hohem Strompreis pausieren |
-| Preissperre max. Dauer | 120 min | höchstens 180 min |
+| Preissperre max. Dauer | 120 min | 30–120 min |
 | Abfrageintervall | 15 s | 5–300 s |
 | PV-Watchdog | 120 s | PV-Vorgabe verfällt, wenn sie nicht erneuert wird (0 = aus) |
 | Max. PV-Leistungsvorgabe | 6000 W | Obergrenze |
@@ -163,10 +163,13 @@ RKM selbst**, mit den Schutzgrenzen des Herstellers.
 
 Mit einem dynamischen Stromtarif (z.B. Tibber) kann die Wärmepumpe in teuren Stunden
 pausieren. Die Integration nutzt dafür denselben Mechanismus wie eine Sperre durch
-den Netzbetreiber (EVU-Sperre). Damit kommt die Wärmepumpe von Haus aus zurecht.
+den Netzbetreiber (EVU-Sperre). Brötje sieht dafür die Register 149/150 ausdrücklich
+vor („Möchte man die Wärmepumpe blockieren …“, NEO-RKM-Handbuch Kap. 7.1).
 
 Schutzgrenzen, fest eingebaut:
-- höchstens **120 min** am Stück (einstellbar bis 180 min), dann automatisch Ende
+- höchstens **120 min** am Stück (einstellbar 30–120 min), dann automatisch Ende
+- höchstens **6 h pro Tag** insgesamt
+  (beides wie bei einer EVU-Sperre laut NEO-RKM-Handbuch: max. 2 h je Unterbrechung, 6 h pro Tag)
 - mindestens **60 min Pause** bis zur nächsten Sperre
 - **keine Sperre unter −10 °C** außen, eine laufende Sperre endet bei Frost sofort
 - eine **echte Sperre des Netzbetreibers wird nie aufgehoben**: Die Integration kann

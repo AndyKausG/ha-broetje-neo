@@ -106,6 +106,8 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         )
         self._lock_started: float | None = None
         self._lock_ended: float | None = None
+        self._lock_day: str | None = None
+        self._lock_day_s: float = 0.0  # locked seconds today (finished locks)
 
         # Efficiency check
         self.heating_system: str = opts.get(CONF_HEATING_SYSTEM, DEFAULT_HEATING_SYSTEM)
@@ -273,6 +275,8 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             reason = "left over from a previous run"
         elif time.monotonic() - self._lock_started > self.price_lock_max_s:
             reason = f"maximum duration of {self.price_lock_max_s // 60} min reached"
+        elif self._locked_today_s() >= safety.PRICE_LOCK_MAX_MINUTES_PER_DAY * 60:
+            reason = "daily maximum reached"
         else:
             t_out = decode(T_OUTDOOR, data[Table.INPUT])
             if t_out is not None and t_out < safety.PRICE_LOCK_MIN_OUTDOOR_TEMP:
@@ -286,9 +290,21 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         except HomeAssistantError as err:
             _LOGGER.error("Releasing price lock failed: %s", err)
 
+    def _today(self) -> str:
+        return time.strftime("%Y-%m-%d")
+
+    def _locked_today_s(self) -> float:
+        """Locked seconds today incl. a running lock."""
+        if self._lock_day != self._today():
+            self._lock_day, self._lock_day_s = self._today(), 0.0
+        running = time.monotonic() - self._lock_started if self._lock_started else 0.0
+        return self._lock_day_s + running
+
     async def _release_price_lock(self) -> None:
         await self._write_raw(EVU_ACTIVE, 0)
         if self._lock_started is not None:
+            self._locked_today_s()  # roll the day if needed
+            self._lock_day_s += time.monotonic() - self._lock_started
             self._lock_ended = time.monotonic()
         self._lock_started = None
 
@@ -358,6 +374,11 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
                     f"Preissperre erst in {int((need - pause) // 60) + 1} min wieder möglich "
                     "(Mindestpause zum Schutz der Anlage)"
                 )
+        if self._locked_today_s() >= safety.PRICE_LOCK_MAX_MINUTES_PER_DAY * 60:
+            raise HomeAssistantError(
+                "Preissperre heute bereits "
+                f"{safety.PRICE_LOCK_MAX_MINUTES_PER_DAY // 60} h aktiv gewesen (Tageslimit)"
+            )
         t_out = self.value(T_OUTDOOR)
         if t_out is None or t_out < safety.PRICE_LOCK_MIN_OUTDOOR_TEMP:
             raise HomeAssistantError(

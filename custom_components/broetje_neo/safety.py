@@ -59,9 +59,11 @@ PV_REGISTERS: Final = frozenset({r.PV_POWER.address})
 # a real utility lock can never be overridden.
 PRICE_LOCK_REGISTERS: Final = frozenset({r.EVU_VALUE.address, r.EVU_ACTIVE.address})
 
-# Price lock guard rails
+# Price lock guard rails, aligned with the utility lock rules quoted in the
+# NEO-RKM manual (BTOElt): max. 2 h per interruption, max. 6 h per day.
 PRICE_LOCK_MAX_MINUTES_DEFAULT: Final = 120
-PRICE_LOCK_MAX_MINUTES_LIMIT: Final = 180
+PRICE_LOCK_MAX_MINUTES_LIMIT: Final = 120
+PRICE_LOCK_MAX_MINUTES_PER_DAY: Final = 360
 PRICE_LOCK_MIN_PAUSE_MINUTES: Final = 60
 PRICE_LOCK_MIN_OUTDOOR_TEMP: Final = -10.0
 
