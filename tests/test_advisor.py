@@ -176,3 +176,10 @@ def test_pruning_keeps_14_days() -> None:
 
 def test_status_collecting() -> None:
     assert a.status([], 1.0) == "collecting"
+
+
+def test_cooling_is_not_counted_as_defrost() -> None:
+    tr = a.Tracker()
+    for i in range(10):
+        tr.feed(a.Sample(ts=T0 + i * 60, t_out=25, defrost=i % 2 == 1, demand="cooling"))
+    assert tr.figures(T0 + 600)["defrosts_24h"] == 0

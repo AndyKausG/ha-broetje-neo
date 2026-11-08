@@ -148,7 +148,9 @@ class Tracker:
             b.heat_flow_sum += s.t_flow
             b.heat_return_sum += s.t_return
             b.heat_s += dt
-        if s.defrost is not None:
+        if s.defrost is not None and s.demand != "cooling":
+            # reg. 27 is "defrost / reversing operation": in cooling mode the
+            # four-way valve is reversed as well, that is not a defrost
             if s.defrost and self._last_defrost is False:
                 b.defrosts += 1
                 if s.t_out is not None and s.t_out > 5:

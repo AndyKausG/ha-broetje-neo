@@ -311,6 +311,10 @@ Verbindungen. Dann eine Integration deaktivieren.
 
 ## Technik
 
+Ausführliche technische Dokumentation (gelesene/geschriebene Register, Positivliste,
+Schutzlogik, Effizienz-Check-Regeln, Prüfprogramm für die Inbetriebnahme):
+**[docs/TECHNIK.md](docs/TECHNIK.md)**
+
 <details>
 <summary>Entitäten, Register, Entwicklung</summary>
 
