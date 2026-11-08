@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="custom_components/broetje_neo/brand/dark_logo@2x.png">
+  <img src="custom_components/broetje_neo/brand/logo@2x.png" alt="NEO Monitor" width="420">
+</picture>
+
 # Brötje NEO (NEO-RKM) für Home Assistant
 
 Zeigt die Werte deiner Brötje-Wärmepumpe **BLW NEO** in Home Assistant an und hilft
@@ -349,6 +354,9 @@ ruff check . && ruff format --check . && pytest -q
 </details>
 
 ## Lizenz und Herkunft
+
+Logo „NEO Monitor“: eigener Entwurf (Quellen in `docs/brand/`), MIT. Es ist kein
+Brötje-Logo. „Brötje“ und „BLW NEO“ werden nur zur Angabe der Kompatibilität genannt.
 
 MIT, siehe [LICENSE](LICENSE). Die Registerbelegung stammt aus der Brötje-Dokumentation
 (NEO-RKM-Montageanleitung 7734937-01). Herstellerdokumente sind nicht Teil des Repos.
