@@ -1,6 +1,7 @@
 {
   "domain": "broetje_neo",
   "name": "Brötje NEO (NEO-RKM)",
+  "after_dependencies": ["frontend", "http"],
   "codeowners": ["@AndyKausG"],
   "config_flow": true,
   "dependencies": [],

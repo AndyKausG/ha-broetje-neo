@@ -10,7 +10,11 @@
   - Timestamps: heating demand last started, compressor heating last started, heating season started (first demand after more than 14 days without).
   - All values come from the efficiency check's hourly data and survive a restart.
 - Compressor run time is counted with the same rule as the new run times (state at the start of each poll interval).
-- Dashboard uses only entities of the integration; `extras/packages/broetje_neo_dashboard.yaml` is removed. The analytics package stays optional (PV, automations).
+- **Dashboard and card shipped with the integration** (`frontend/broetje-neo.js`, registered automatically, no HACS resource):
+  - Dashboard strategy `custom:broetje-neo`: complete wall tablet dashboard from one line of configuration; charts with ApexCharts if installed, otherwise with the built-in statistics/history cards (`charts: auto|apexcharts|core`).
+  - Card `custom:broetje-neo-card`: animated plant schema (refrigerant circuit, diverter valve, MKR1 heating curve, plain-language state text, German/English), respects "reduce motion".
+  - Entities are found via the integration (platform + translation key), independent of device name and language.
+- `extras/dashboard/broetje-neo-dashboard.yaml` and `extras/packages/broetje_neo_dashboard.yaml` are removed (`button-card` no longer needed). The analytics package stays optional (PV, automations).
 
 ## [0.5.0] - 2026-11-08
 

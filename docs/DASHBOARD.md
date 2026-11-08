@@ -1,41 +1,64 @@
-# Dashboard (Puffer + Mischerkreis 1)
+# Dashboard
 
-Wandtablet-Dashboard für Anlagen mit Puffer und Fußbodenheizung an MKR1.
-Hauptfrage in der Übergangszeit: **Hat die Heizung schon eingeschaltet?**
+Die Integration bringt ihr Dashboard selbst mit. **Kein Package, keine YAML zum Einfügen,
+`button-card` wird nicht gebraucht.** Hauptfrage in der Übergangszeit: **Hat die Heizung
+schon eingeschaltet?**
 
-| Datei | Inhalt |
-|-------|--------|
-| `extras/dashboard/broetje-neo-dashboard.yaml` | Dashboard (Ansicht „Abschnitte“, 4 Spalten) |
+| Teil | Typ | Inhalt |
+|------|-----|--------|
+| Dashboard-Strategie | `strategy: type: custom:broetje-neo` | Komplettes Dashboard (Ansicht „Abschnitte“, 4 Spalten): Status, „Heizt sie schon?“, Temperaturen, Effizienz, Laufzeiten, Anlagenschema, 30 Tage Übergangszeit, 24 h |
+| Karte | `type: custom:broetje-neo-card` | Animiertes Anlagenschema, auch in eigenen Dashboards nutzbar |
 
-Alle Werte liefert die Integration (ab 0.6.0). Ein Package ist nicht nötig;
-`extras/packages/broetje_neo_analytics.yaml` bleibt optional für PV-Auswertung und
-Automationen (siehe README).
+Beides lädt die Integration automatisch (Datei `custom_components/broetje_neo/frontend/broetje-neo.js`).
+Die Entitäten werden über die Integration gefunden, Gerätename und HA-Sprache spielen keine Rolle.
 
-## Voraussetzungen
+## Einrichten
 
-HACS → Frontend:
+1. Integration auf mindestens 0.6.0 aktualisieren, HA neu starten, Browser neu laden
+   (in der Companion-App: *Einstellungen → Companion-App → Fehlerbehebung → Frontend-Cache leeren*).
+2. *Einstellungen → Dashboards → Dashboard hinzufügen*. Wird „Brötje NEO“ angeboten, das
+   wählen. Sonst „Neu von Grund auf“ → Dashboard öffnen → Stift → ⋮ → *Rohkonfigurationseditor*,
+   gesamten Inhalt ersetzen durch:
 
-| Karte | Repository | Verwendung |
-|-------|------------|------------|
-| ApexCharts Card | `RomRider/apexcharts-card` | 30-Tage- und 24-h-Diagramm |
-| button-card | `custom-cards/button-card` | Anlagenschema mit Animation |
+```yaml
+strategy:
+  type: custom:broetje-neo
+```
+
+Optionen der Strategie:
+
+| Option | Werte | Standard |
+|--------|-------|----------|
+| `charts` | `auto`, `apexcharts`, `core` | `auto`: ApexCharts, wenn installiert, sonst die eingebauten Statistik-/Verlaufskarten |
+| `title` | Text | „Wärmepumpe“ |
+| `device_id` | Geräte-ID | erstes Brötje-NEO-Gerät |
+
+Anpassen: Im Dashboard *⋮ → Kontrolle übernehmen*. HA wandelt die Strategie dann in
+normale, editierbare Karten um (die automatische Anpassung an neue Versionen endet damit).
+
+Karte einzeln (Karte hinzufügen → „Brötje NEO“ oder YAML):
+
+```yaml
+type: custom:broetje-neo-card
+# optional:
+# device_id: <Geräte-ID>
+# heating_pump_entity: binary_sensor.brotje_neo_heizen   # wenn Reg. 23 bei dir nicht schaltet
+```
+
+Optional für schönere Diagramme (Balken + Linie mit zwei Achsen): HACS → Frontend →
+`apexcharts-card` (RomRider). Ohne sie nutzt das Dashboard die eingebauten Karten.
 
 Das 30-Tage-Diagramm liest die **Langzeitstatistik** (Tageszuwachs der „heute“-Zähler,
 Tagesmittel Außentemperatur). Es braucht kein `purge_keep_days` > 10, füllt sich aber
 erst ab der Version 0.6.0.
 
-Dashboard anlegen (die Datei ist ein komplettes Dashboard, **keine Karte**; im Dialog
-„Karte anpassen“ kommt „No card type configured“):
-
-1. *Einstellungen → Dashboards → Dashboard hinzufügen → Neu von Grund auf*
-2. Dashboard öffnen → Stift (Bearbeiten) → ⋮ → *Rohkonfigurationseditor*
-3. Gesamten Inhalt durch die Datei ersetzen → Speichern
-
 Heizgrenze: über Modbus nicht lesbar. Der Effizienz-Check lernt sie aus dem Betrieb
-(`sensor.brotje_neo_heizgrenze_beobachtet`, siehe `docs/TECHNIK.md` 5.2). Optional den
-Wert vom Bedienteil in den Optionen der Integration eintragen („Heizgrenze laut
-Bedienteil“) -> `sensor.brotje_neo_heizgrenze_eingestellt`. Beide erscheinen als Linie
+(„Heizgrenze beobachtet“, siehe `docs/TECHNIK.md` 5.2). Optional den Wert vom Bedienteil
+in den Optionen der Integration eintragen („Heizgrenze laut Bedienteil“). Beide erscheinen
 im 30-Tage-Diagramm; liegt die gelernte mehr als 1 K darüber, meldet der Effizienz-Check das.
+
+Ob Reg. 23 „Heizkreispumpe“ bei einer reinen MKR1-Anlage schaltet, ist anlagenabhängig:
+im 24-h-Verlauf prüfen. Bleibt sie dauerhaft aus, in der Karte `heating_pump_entity` setzen.
 
 ## Status (`sensor.brotje_neo_status`)
 
@@ -75,36 +98,6 @@ Tagesgrenze = Mitternacht in der Zeitzone von HA.
 | `sensor.brotje_neo_strom_heute` / `…_warme_heute` | kWh, aus der Momentanleistung |
 | `sensor.brotje_neo_arbeitszahl_heute` | Wärme / Strom heute, ab 0,2 kWh Strom |
 
-## Entitätszuordnung
-
-Annahme: Gerätename „Brötje NEO“, HA-Sprache Deutsch → Präfix `brotje_neo_`.
-Anderer Gerätename: in der Dashboard-Datei `brotje_neo_` per Suchen/Ersetzen ändern.
-Die IDs werden in `tests/test_package.py` gegen die Integration geprüft.
-
-| Anzeige | Entität | Reg. |
-|---------|---------|------|
-| Außen | `sensor.brotje_neo_aussentemperatur` | 10 |
-| WP Vorlauf / Rücklauf (= Pufferladung) | `sensor.brotje_neo_vorlauftemperatur` / `…_rucklauftemperatur` | 12 / 13 |
-| Puffer / Puffer Soll | `sensor.brotje_neo_puffertemperatur` / `…_rucklaufsolltemperatur` | 14 / 34 |
-| Warmwasser | `sensor.brotje_neo_warmwassertemperatur` | 11 |
-| FBH Vorlauf Soll | `sensor.brotje_neo_mkr1_vorlaufsoll` | 35 |
-| Verdichter % | `sensor.brotje_neo_verdichterdrehzahl` | 29 |
-| Heizanforderung / WW / Kühlen | `binary_sensor.brotje_neo_heizen` / `…_warmwasser` / `…_kuhlen` | 41 |
-| Heizkreispumpe | `binary_sensor.brotje_neo_heizkreispumpe` | 23 |
-| Pufferladepumpe | `binary_sensor.brotje_neo_pufferladepumpe` | 24 |
-| Verdichter / Ventilator | `binary_sensor.brotje_neo_verdichter` / `…_ventilator` | 25 / 37 |
-| Abtauen | `binary_sensor.brotje_neo_abtauen` | 27 |
-| COP live | `sensor.brotje_neo_cop_berechnet` | 74 / 70 |
-| Betriebsart / MKR1-Betriebsart | `sensor.brotje_neo_betriebsart_status` / `…_mkr1_betriebsart_status` | 100 / 107 |
-| Kältekreis | `sensor.brotje_neo_niederdruck` / `…_hochdruck` / `…_verdampfungstemperatur` / `…_kondensationstemperatur` / `…_expansionsventil` | 21 / 22 / 18 / 19 / 40 |
-| Heizkurve MKR1 (gemessen) | `sensor.brotje_neo_mischer_1_heizkurve_vl_soll_bei_{18,0,minus_15}_grad` | Effizienz-Check |
-
-Nicht verfügbar (NEO-RKM): Mischer-Vorlauf/-Rücklauf Ist, Mischerpumpe,
-Mischerstellung, Heizkurve, Heizgrenze. Ob Reg. 23 „Heizkreispumpe“ bei einer
-reinen MKR1-Anlage schaltet, ist anlagenabhängig: im 24-h-Verlauf prüfen. Bleibt
-sie dauerhaft aus, im Schema (`mkr = on('binary_sensor.brotje_neo_heizkreispumpe')`)
-z. B. `binary_sensor.brotje_neo_heizen` eintragen.
-
 ## Schema
 
 Bewegung nur bei Aktivität:
@@ -130,3 +123,6 @@ Weitere Elemente:
 - **Heizkurve MKR1**: Linie aus den vom Effizienz-Check gemessenen Stützpunkten
   (+18 / 0 / −15 °C), Punkt = aktuelle Außentemperatur und Vorlaufsoll. Solange der
   Check noch sammelt, fehlt die Linie.
+
+Bei aktivierter Einstellung „Bewegung reduzieren“ (Betriebssystem/Browser) bleiben alle
+Animationen aus; Farben und Werte bleiben.
