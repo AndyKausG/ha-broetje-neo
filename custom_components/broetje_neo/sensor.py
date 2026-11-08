@@ -261,6 +261,21 @@ SENSORS: tuple[BroetjeSensorDescription, ...] = (
         value_fn=_enum(r.OPERATING_MODE, r.OPERATING_MODES),
         attr_fn=lambda c: {"raw": c.raw(r.OPERATING_MODE)},
     ),
+    BroetjeSensorDescription(
+        key="mkr1_operating_mode_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=list(r.OPERATING_MODES.values()),
+        value_fn=_enum(r.MKR1_MODE, r.OPERATING_MODES),
+        attr_fn=lambda c: {"raw": c.raw(r.MKR1_MODE)},
+    ),
+    BroetjeSensorDescription(
+        key="mkr2_operating_mode_status",
+        device_class=SensorDeviceClass.ENUM,
+        options=list(r.OPERATING_MODES.values()),
+        entity_registry_enabled_default=False,
+        value_fn=_enum(r.MKR2_MODE, r.OPERATING_MODES),
+        attr_fn=lambda c: {"raw": c.raw(r.MKR2_MODE)},
+    ),
     # derived values
     _kdiff("flow_return_spread", r.T_FLOW, r.T_RETURN),
     _kdiff("superheat", r.T_SUCTION_GAS, r.T_EVAPORATION),
@@ -375,6 +390,8 @@ ADVISOR_SENSORS: tuple[BroetjeSensorDescription, ...] = (
         key="grid_lock_today",
         device_class=SensorDeviceClass.DURATION,
         native_unit_of_measurement=UnitOfTime.MINUTES,
+        # daily counter: resets at midnight (and on HA restart)
+        state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:transmission-tower-off",
         value_fn=lambda c: c.grid_lock_today_min,
     ),

@@ -89,7 +89,9 @@ Die IDs werden in `tests/test_package.py` gegen die Integration geprüft.
 | Verdichter / Ventilator | `binary_sensor.brotje_neo_verdichter` / `…_ventilator` | 25 / 37 |
 | Abtauen | `binary_sensor.brotje_neo_abtauen` | 27 |
 | COP live | `sensor.brotje_neo_cop_berechnet` | 74 / 70 |
-| Betriebsart | `sensor.brotje_neo_betriebsart_status` | 100 |
+| Betriebsart / MKR1-Betriebsart | `sensor.brotje_neo_betriebsart_status` / `…_mkr1_betriebsart_status` | 100 / 107 |
+| Kältekreis | `sensor.brotje_neo_niederdruck` / `…_hochdruck` / `…_verdampfungstemperatur` / `…_kondensationstemperatur` / `…_expansionsventil` | 21 / 22 / 18 / 19 / 40 |
+| Heizkurve MKR1 (gemessen) | `sensor.brotje_neo_mischer_1_heizkurve_vl_soll_bei_{18,0,minus_15}_grad` | Effizienz-Check |
 
 Nicht verfügbar (NEO-RKM): Mischer-Vorlauf/-Rücklauf Ist, Mischerpumpe,
 Mischerstellung, Heizkurve, Heizgrenze. Ob Reg. 23 „Heizkreispumpe“ bei einer
@@ -108,6 +110,17 @@ Bewegung nur bei Aktivität:
 | Pufferkreis | fließt bei Pufferladepumpe an; beim Abtauen rückwärts |
 | WW-Kreis | fließt bei Verdichter an + WW-Anforderung |
 | MKR1 / FBH | fließt bei Heizkreispumpe an |
+| Kältekreis | fließt bei Verdichterlauf (kalt → Verdichter → heiß → Expansionsventil) |
+| Umschaltventil | zeigt, welcher Speicher geladen wird (Text „Ventil: Puffer/Warmwasser“) |
 | Speicher | Farbe nach Temperatur (20 °C blau → 60 °C rot) |
 
-Im Ruhezustand sind alle Leitungen grau und statisch.
+Im Ruhezustand sind alle Leitungen grau und statisch. Im Stillstand zeigen Nieder- und
+Hochdruck denselben Wert (Druckausgleich), das Schema sagt das ausdrücklich.
+
+Weitere Elemente:
+
+- **Klartext**: ein Satz je Zustand (z. B. „Das Haus braucht Wärme. Der Puffer ist noch
+  warm genug, die Wärmepumpe wartet.“) und eine Zeile zur Fußbodenheizung.
+- **Heizkurve MKR1**: Linie aus den vom Effizienz-Check gemessenen Stützpunkten
+  (+18 / 0 / −15 °C), Punkt = aktuelle Außentemperatur und Vorlaufsoll. Solange der
+  Check noch sammelt, fehlt die Linie.

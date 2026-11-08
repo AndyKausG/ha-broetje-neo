@@ -4,7 +4,11 @@
 
 - New wall tablet dashboard `extras/dashboard/broetje-neo-dashboard.yaml` (sections view) for plants with a buffer and mixing circuit 1: status, separate view of heating demand, heating circuit pump, buffer charging and compressor, efficiency tiles, run times, 30-day transition-period chart (daily run times vs. mean outdoor temperature and heating limit), 24 h chart and an animated plant schema that only moves while pumps, fan or compressor run. Needs `apexcharts-card` and `button-card` from HACS.
 - New package `extras/packages/broetje_neo_dashboard.yaml`: prioritised status sensor, "compressor heating" binary sensor, last heating start, start of heating season, run times today / yesterday / 7 days, heating limit input.
+- Plant schema shows the refrigerant circuit (low/high pressure, evaporation/condensation temperature, expansion valve, "pressure equalisation" at standstill), the buffer/DHW diverter valve, a mini heating curve of mixing circuit 1 (measured curve points plus current operating point) and plain-language sentences explaining the current state.
 - New documentation `docs/DASHBOARD.md`.
+- New read-only sensors "MKR1 operating mode status" and "MKR2 operating mode status" (registers 107 / 112, all mode values). They exist without write access; MKR2 is disabled by default.
+- Operating hours DHW / heating treat a raw 0 as invalid (like the energy counters), so a transient read glitch no longer looks like a counter reset in the long-term statistics. A brand-new plant shows "unknown" until the first full hour.
+- "Grid operator control today" now has `state_class: total_increasing` and is kept in the long-term statistics.
 
 ## [0.3.1] - 2026-11-08
 
