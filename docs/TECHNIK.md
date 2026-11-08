@@ -110,7 +110,7 @@ Einheiten nach RKM Tab. 4. Alle Messwerte haben `state_class: measurement`, Zäh
 | 32 | **EVU-Freigabe** | ≠0 = freigegeben | EVU-Freigabe |
 | 33 | Außentemperatur verzögert | 0,1 °C | Außentemperatur verzögert |
 | 34 | Rücklauf-/Speichersoll (Heizkurve) | 0,1 °C | Rücklaufsolltemperatur |
-| 35 / 36 | MKR1/2 VL-Soll | 0,1 °C | MKR1/2 Vorlaufsoll (deaktiviert) |
+| 35 / 36 | MKR1/2 VL-Soll | 0,1 °C | MKR1/2 Vorlaufsoll (MKR1 aktiv, MKR2 deaktiviert; unbekannt ohne aktiven Mischerkreis: R107/R112 ≠ 0 und Wert > 0) |
 | 37 | EQ-Pumpe / Ventilator | ≠0 | Ventilator |
 | 38 | WW-Vorrang | ≠0 | Warmwasservorrang |
 | 39 | Kühlen UMV passiv | ≠0 | Kühlen passiv |
@@ -138,6 +138,8 @@ Abgeleitete Sensoren (nur Rechnung, keine Register):
 | Arbeitszahl gesamt / Heizen / WW | R72/R68, R60/R62, R64/R66 (seit Inbetriebnahme) |
 
 ---
+
+Zwei Kartenvarianten in `extras/lovelace/`: `heat-pump-card.yaml` (Heizkreis direkt, Vorlauf/Rücklauf der Wärmepumpe) und `heat-pump-card-mischer.yaml` (Puffer + Mischerkreis; Heizkreis zeigt den MKR1-Vorlaufsoll, kein Rücklauf, da der NEO-RKM keine gemessenen Mischerwerte liefert).
 
 ## 3. Schreiben
 

@@ -719,3 +719,19 @@ async def test_removed_room_sensor_is_ignored(
     await hass.async_block_till_done()
     attrs = hass.states.get("sensor.wp_efficiency_check").attributes
     assert [r["name"] for r in attrs["rooms"]] == ["EG"]
+
+
+async def test_mkr1_flow_setpoint_needs_active_mixer(
+    hass: HomeAssistant, fake_client, config_entry
+) -> None:
+    await _setup(hass, config_entry)
+    assert hass.states.get("sensor.wp_mkr1_flow_setpoint").state == STATE_UNKNOWN
+
+
+async def test_mkr1_flow_setpoint_active_mixer(
+    hass: HomeAssistant, fake_client, config_entry
+) -> None:
+    fake_client.input[35] = 326
+    fake_client.holding[107] = 1
+    await _setup(hass, config_entry)
+    assert hass.states.get("sensor.wp_mkr1_flow_setpoint").state == "32.6"

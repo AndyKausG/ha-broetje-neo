@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1] - 2026-11-08
+
+- The "MKR1 flow setpoint" sensor is now enabled by default. It is unknown while mixing circuit 1 is not active (mode register 107 off or flow setpoint register 35 at 0); "MKR2 flow setpoint" follows the same rule but stays disabled by default.
+- Second dashboard card template `heat-pump-card-mischer.yaml` for plants with a buffer and a mixing circuit (shows the mixer flow setpoint, no heating return).
+- README: new section on choosing the right dashboard card, what the interface provides and sensors a plant does not have.
+
 ## [0.3.0] - 2026-11-08
 
 - **New option "Heating circuit for the efficiency check"** (`heating_circuit`: automatic, HKR, mixing circuit 1, mixing circuit 2). Automatic detects mixing circuit 1, then mixing circuit 2 (flow setpoint register 35 / 36 above 0 and mode register 107 / 112 not off), else the direct circuit. Mixing circuit 2 uses its room setpoint (register 113), the "Mischer 2" menu path and the "MKR2 Raumsoll" entity in the hints. The `mkr_set_*` sensors show the flow setpoint of the selected mixing circuit.

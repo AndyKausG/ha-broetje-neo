@@ -174,6 +174,38 @@ Schnittstelle nicht erkennen.
 
 ---
 
+## Dashboard: Welche Karte passt zu meiner Anlage?
+
+Im Ordner `extras/lovelace/` liegen zwei Anlagenbilder für die HACS-Frontend-Karte
+`lovelace-heat-pump-card` (die Karte musst du selbst über HACS installieren). Welche
+Datei zu dir passt, hängt davon ab, wie die Wärmepumpe an die Heizung angeschlossen ist.
+
+**So erkennst du deinen Anlagentyp:** Öffne *Entwicklerwerkzeuge → Zustände* und suche
+den Sensor „Effizienz-Check“. Im Attribut `circuit` steht:
+
+- `hkr`: die Wärmepumpe versorgt den Heizkreis direkt. Nimm `heat-pump-card.yaml`.
+- `mkr1` oder `mkr2`: Puffer und Mischerkreis. Nimm `heat-pump-card-mischer.yaml`.
+
+### Was die Schnittstelle liefert und was nicht
+
+| Status | Werte |
+|--------|-------|
+| Gemessen | Außentemperatur, Vorlauf/Rücklauf der Wärmepumpe (mit Puffer ist das die Pufferladung), Puffer, Warmwasser, Kältekreis, Pumpen der Wärmepumpe |
+| Nur Sollwert | Mischer-Vorlauf (MKR1/2 Vorlaufsoll) |
+| Nicht verfügbar | gemessener Mischer-Vorlauf und -Rücklauf, Mischerpumpe, Raumtemperatur (nimm eigene Sensoren), Status des Heizstabs |
+
+Darum zeigt die Mischer-Variante im Heizkreis den Sollwert und lässt den Rücklauf weg.
+Der Sensor „MKR1 Vorlaufsoll“ ist „unbekannt“, solange kein Mischerkreis aktiv ist.
+
+### Fühler, die eine Anlage nicht hat
+
+Für nicht vorhandene Fühler meldet der Regler −50,0 °C (zum Beispiel für die
+Frischwasserstation oder den Quellenaustritt). Die Integration zeigt dafür „unbekannt“
+an. Die Frischwassertemperatur ist standardmäßig deaktiviert, weil die meisten Anlagen
+das Warmwasser im Speicher erwärmen. Es ist nichts kaputt.
+
+---
+
 ## Installation
 
 1. HACS → Integrationen → ⋮ → Benutzerdefinierte Repositories →
@@ -307,7 +339,8 @@ Anzeige: `binary_sensor.…_netzbetreiber_steuert` und
 |-------|-------|
 | `extras/packages/broetje_neo_analytics.yaml` | Arbeitszahl pro Tag/Monat/Jahr, **PV-Anteil**, Starts und Laufzeiten, Abtauungen, EVU-Sperrzeit, Automationen für PV und Preissperre |
 | `extras/tools/analyze_heatpump.py` | Auswertung der HA-Datenbank am PC: Monats-Arbeitszahl, Takten, Heizkurve, Spreizung, Überhitzung mit Bewertung |
-| `extras/lovelace/heat-pump-card.yaml` | Anlagenbild mit der `lovelace-heat-pump-card` |
+| `extras/lovelace/heat-pump-card.yaml` | Anlagenbild (Heizkreis direkt) mit der `lovelace-heat-pump-card` |
+| `extras/lovelace/heat-pump-card-mischer.yaml` | Anlagenbild für Anlagen mit Puffer + Mischerkreis (siehe „Dashboard: Welche Karte passt zu meiner Anlage?“) |
 | `extras/lovelace/effizienz-check.yaml` | Effizienz-Check mit Hinweisen und Kennzahlen |
 
 **Package einbinden:** Datei nach `/config/packages/` kopieren, in

@@ -1,3 +1,5 @@
+# Variante: Heizkreis direkt (ohne Mischer).
+# Für Anlagen mit Puffer + Mischerkreis: heat-pump-card-mischer.yaml
 # lovelace-heat-pump-card (ManfredTremmel) für broetje_neo
 # Annahme: Gerätename "Brötje NEO", HA-Sprache Deutsch -> Präfix brotje_neo_
 # Layout: Ansicht "Abschnitte", Abschnitt column_span 2-3, Karte grid_options.columns: full

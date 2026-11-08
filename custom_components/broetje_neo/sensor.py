@@ -79,7 +79,24 @@ def _cop_calc(c: BroetjeNeoCoordinator) -> StateType:
     return round(p_th * 1000 / p_el, 2)
 
 
-def _temp(key: str, reg: r.Register, enabled: bool = True) -> BroetjeSensorDescription:
+def _mixer_setpoint(reg_flow: r.Register, reg_mode: r.Register) -> ValueFn:
+    """Mixer flow setpoint, unknown while the mixing circuit is not active."""
+
+    def fn(c: BroetjeNeoCoordinator) -> StateType:
+        flow, mode = c.value(reg_flow), c.raw(reg_mode)
+        if flow is None or flow <= 0 or mode is None or mode == 0:
+            return None
+        return flow
+
+    return fn
+
+
+def _temp(
+    key: str,
+    reg: r.Register,
+    enabled: bool = True,
+    value_fn: ValueFn | None = None,
+) -> BroetjeSensorDescription:
     return BroetjeSensorDescription(
         key=key,
         device_class=SensorDeviceClass.TEMPERATURE,
@@ -87,7 +104,7 @@ def _temp(key: str, reg: r.Register, enabled: bool = True) -> BroetjeSensorDescr
         state_class=SensorStateClass.MEASUREMENT,
         suggested_display_precision=1,
         entity_registry_enabled_default=enabled,
-        value_fn=_reg(reg),
+        value_fn=value_fn or _reg(reg),
     )
 
 
@@ -146,8 +163,17 @@ SENSORS: tuple[BroetjeSensorDescription, ...] = (
     _temp("hot_gas_temperature", r.T_HOT_GAS),
     _temp("fresh_water_temperature", r.T_FRESH_WATER, enabled=False),
     _temp("return_setpoint_actual", r.T_RETURN_SETPOINT),
-    _temp("mkr1_flow_setpoint_actual", r.T_MKR1_FLOW_SETPOINT, enabled=False),
-    _temp("mkr2_flow_setpoint_actual", r.T_MKR2_FLOW_SETPOINT, enabled=False),
+    _temp(
+        "mkr1_flow_setpoint_actual",
+        r.T_MKR1_FLOW_SETPOINT,
+        value_fn=_mixer_setpoint(r.T_MKR1_FLOW_SETPOINT, r.MKR1_MODE),
+    ),
+    _temp(
+        "mkr2_flow_setpoint_actual",
+        r.T_MKR2_FLOW_SETPOINT,
+        enabled=False,
+        value_fn=_mixer_setpoint(r.T_MKR2_FLOW_SETPOINT, r.MKR2_MODE),
+    ),
     BroetjeSensorDescription(
         key="low_pressure",
         device_class=SensorDeviceClass.PRESSURE,
