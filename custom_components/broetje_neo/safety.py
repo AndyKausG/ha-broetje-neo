@@ -28,11 +28,15 @@ class Limit:
     vmax: float
 
 
-# Settings (option "allow_write")
+# Settings (option "allow_write"), within the customer level of the BLW NEO
+# operating manual 7709599-04 (Grundbedienung / Heizkreis / WW-Bereitung):
+#  - room setpoint HKR 10-25 °C = parallel shift of the heating curve
+#  - DHW normal 10-50 °C (above needs "WW max" in the expert level)
+#  - DHW minimum = frost protection of the storage tank (5-45 °C, factory 15)
 SETTING_LIMITS: Final[dict[int, Limit]] = {
     r.ROOM_SETPOINT.address: Limit(15, 25),
-    r.DHW_NORMAL.address: Limit(40, 55),
-    r.DHW_MIN.address: Limit(35, 50),
+    r.DHW_NORMAL.address: Limit(40, 50),
+    r.DHW_MIN.address: Limit(10, 45),
     # below ~18 °C return temperature, underfloor cooling risks condensation
     r.COOLING_RLT_MIN.address: Limit(18, 25),
     r.MKR1_ROOM_SETPOINT.address: Limit(15, 25),

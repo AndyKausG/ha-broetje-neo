@@ -214,11 +214,17 @@
       "defrosts_24h": {
         "name": "Abtauungen 24 h"
       },
-      "curve_flow_m10": {
-        "name": "Heizkurve Vorlauf bei minus 10 Grad"
+      "rl_set_18": {
+        "name": "Heizkurve RL-Soll bei 18 Grad"
       },
-      "curve_flow_0": {
-        "name": "Heizkurve Vorlauf bei 0 Grad"
+      "rl_set_0": {
+        "name": "Heizkurve RL-Soll bei 0 Grad"
+      },
+      "rl_set_m15": {
+        "name": "Heizkurve RL-Soll bei minus 15 Grad"
+      },
+      "room_dev_7d": {
+        "name": "Raum Abweichung vom Soll 7 Tage"
       },
       "heating_spread_7d": {
         "name": "Spreizung Heizen 7 Tage"
@@ -317,13 +323,13 @@
     },
     "number": {
       "room_setpoint": {
-        "name": "Raumsolltemperatur"
+        "name": "Raumsoll (Heizkurve verschieben)"
       },
       "dhw_normal_setpoint": {
         "name": "WW Normaltemperatur"
       },
       "dhw_min_setpoint": {
-        "name": "WW Minimaltemperatur"
+        "name": "WW Minimaltemperatur (Frostschutz)"
       },
       "cooling_return_min": {
         "name": "Kühlen RLT min"

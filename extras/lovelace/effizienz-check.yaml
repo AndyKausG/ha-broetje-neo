@@ -37,8 +37,10 @@ cards:
       - entity: sensor.brotje_neo_arbeitszahl_30_tage
       - entity: sensor.brotje_neo_arbeitszahl_heizen_30_tage
       - entity: sensor.brotje_neo_arbeitszahl_warmwasser_30_tage
-      - entity: sensor.brotje_neo_heizkurve_vorlauf_bei_0_grad
-      - entity: sensor.brotje_neo_heizkurve_vorlauf_bei_minus_10_grad
+      - entity: sensor.brotje_neo_heizkurve_rl_soll_bei_18_grad
+      - entity: sensor.brotje_neo_heizkurve_rl_soll_bei_0_grad
+      - entity: sensor.brotje_neo_heizkurve_rl_soll_bei_minus_15_grad
+      - entity: sensor.brotje_neo_raum_abweichung_vom_soll_7_tage
       - entity: sensor.brotje_neo_spreizung_heizen_7_tage
       - entity: sensor.brotje_neo_raumtemperatur_7_tage
       - entity: sensor.brotje_neo_verdichterstarts_24_h

@@ -303,15 +303,21 @@ ADVISOR_SENSORS: tuple[BroetjeSensorDescription, ...] = (
     ),
     _check("defrosts_24h", precision=0, icon="mdi:snowflake-melt"),
     _check(
-        "curve_flow_m10",
+        "rl_set_18",
         UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
     ),
     _check(
-        "curve_flow_0",
+        "rl_set_0",
         UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
     ),
+    _check(
+        "rl_set_m15",
+        UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+    ),
+    _check("room_dev_7d", UnitOfTemperature.KELVIN, precision=1),
     _check("heating_spread_7d", UnitOfTemperature.KELVIN),
     _check(
         "room_avg_7d",

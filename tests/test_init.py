@@ -53,7 +53,7 @@ async def test_sensors(hass: HomeAssistant, fake_client, config_entry) -> None:
     assert st("binary_sensor.wp_hot_water").state == STATE_OFF
     assert st("binary_sensor.wp_utility_release").state == STATE_ON
     assert st("select.wp_operating_mode").state == "auto"
-    assert st("number.wp_room_setpoint").state == "21.5"
+    assert st("number.wp_room_setpoint_heating_curve_shift").state == "21.5"
 
 
 async def test_write_number_and_select(hass: HomeAssistant, fake_client, config_entry) -> None:
@@ -61,7 +61,7 @@ async def test_write_number_and_select(hass: HomeAssistant, fake_client, config_
     await hass.services.async_call(
         "number",
         "set_value",
-        {"entity_id": "number.wp_room_setpoint", "value": 22.0},
+        {"entity_id": "number.wp_room_setpoint_heating_curve_shift", "value": 22.0},
         blocking=True,
     )
     assert fake_client.holding[101] == 220
@@ -166,7 +166,7 @@ async def test_readonly_default(hass: HomeAssistant, fake_client, readonly_entry
     await _setup(hass, readonly_entry)
     assert hass.states.get("sensor.wp_outdoor_temperature").state == "-3.5"
     for eid in (
-        "number.wp_room_setpoint",
+        "number.wp_room_setpoint_heating_curve_shift",
         "number.wp_pv_power",
         "select.wp_operating_mode",
         "switch.wp_price_lock",
@@ -192,7 +192,7 @@ async def test_write_without_pv(hass: HomeAssistant, fake_client, readonly_entry
     )
     fake_client.holding[125] = 2000
     await _setup(hass, entry)
-    assert hass.states.get("number.wp_room_setpoint") is not None
+    assert hass.states.get("number.wp_room_setpoint_heating_curve_shift") is not None
     assert hass.states.get("select.wp_operating_mode") is not None
     assert hass.states.get("number.wp_pv_power") is None
     coordinator = entry.runtime_data
@@ -211,7 +211,7 @@ async def test_pv_without_write(hass: HomeAssistant, fake_client, readonly_entry
     )
     await _setup(hass, entry)
     assert hass.states.get("number.wp_pv_power") is not None
-    assert hass.states.get("number.wp_room_setpoint") is None
+    assert hass.states.get("number.wp_room_setpoint_heating_curve_shift") is None
     assert hass.states.get("select.wp_operating_mode") is None
 
 
@@ -220,12 +220,12 @@ async def test_disabling_write_removes_entities(
 ) -> None:
     await _setup(hass, config_entry)
     reg = er.async_get(hass)
-    assert reg.async_get("number.wp_room_setpoint") is not None
+    assert reg.async_get("number.wp_room_setpoint_heating_curve_shift") is not None
     hass.config_entries.async_update_entry(
         config_entry, options={CONF_ALLOW_WRITE: False, CONF_ALLOW_PV: False}
     )
     await hass.async_block_till_done()
-    assert reg.async_get("number.wp_room_setpoint") is None
+    assert reg.async_get("number.wp_room_setpoint_heating_curve_shift") is None
     assert reg.async_get("number.wp_pv_power") is None
     assert reg.async_get("sensor.wp_outdoor_temperature") is not None
 
@@ -237,7 +237,7 @@ async def test_unsafe_values_rejected(hass: HomeAssistant, fake_client, config_e
     with pytest.raises(HomeAssistantError):
         await coordinator.async_write(r.ROOM_SETPOINT, 30)
     with pytest.raises(HomeAssistantError):
-        await coordinator.async_write(r.DHW_NORMAL, 65)
+        await coordinator.async_write(r.DHW_NORMAL, 52)
     with pytest.raises(HomeAssistantError):
         await coordinator.async_write(r.COOLING_RLT_MIN, 15)
     with pytest.raises(HomeAssistantError):
@@ -259,13 +259,14 @@ async def test_unsafe_values_rejected(hass: HomeAssistant, fake_client, config_e
 
 
 async def test_dhw_min_not_above_normal(hass: HomeAssistant, fake_client, config_entry) -> None:
-    fake_client.holding[105] = 460  # normal 46 °C, min 45 °C
+    fake_client.holding[105] = 420  # normal 42 °C
+    fake_client.holding[106] = 430  # min 43 °C
     await _setup(hass, config_entry)
     with pytest.raises(HomeAssistantError):
         await hass.services.async_call(
             "number",
             "set_value",
-            {"entity_id": "number.wp_dhw_minimum_temperature", "value": 48.0},
+            {"entity_id": "number.wp_dhw_minimum_frost_protection", "value": 44.0},
             blocking=True,
         )
     with pytest.raises(HomeAssistantError):
@@ -275,7 +276,7 @@ async def test_dhw_min_not_above_normal(hass: HomeAssistant, fake_client, config
             {"entity_id": "number.wp_dhw_normal_temperature", "value": 42.0},
             blocking=True,
         )
-    assert fake_client.holding[106] == 450
+    assert fake_client.holding[106] == 430
 
 
 # ----------------------------------------------------------- price lock

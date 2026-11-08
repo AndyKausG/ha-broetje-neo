@@ -28,12 +28,14 @@ KEEP_S = 14 * DAY
 MAX_DT = 120  # s; longer gaps (outages) are not counted as runtime
 MIN_DAYS = 3  # data needed before advice is given
 
-SYSTEM_LIMITS = {
-    # heating system: (max flow at -10 °C, max flow at 0 °C, max spread K)
-    "underfloor": (35.0, 30.0, 6.0),
-    "radiator": (50.0, 42.0, 8.0),
-    "mixed": (45.0, 38.0, 7.0),
-}
+# max. flow/return spread in heating mode (rule of thumb)
+SPREAD_LIMITS = {"underfloor": 6.0, "radiator": 8.0, "mixed": 7.0}
+
+# Heating curve of the NEO-RWP: return setpoint at 18 / 0 / -15 °C outdoor.
+# Factory setting for underfloor heating (BLW NEO operating manual 7709599-04).
+CURVE_POINTS = (18.0, 0.0, -15.0)
+FACTORY_CURVE_UNDERFLOOR = {18.0: 22.0, 0.0: 27.0, -15.0: 30.0}
+MENU_CURVE = "Hauptmenü → Heizkreis → Heizkurve"
 
 
 @dataclass
@@ -42,6 +44,9 @@ class Sample:
 
     ts: float
     t_out: float | None = None
+    t_out_delayed: float | None = None
+    rl_set: float | None = None  # return setpoint of the controller (heating curve)
+    room_set: float | None = None
     t_flow: float | None = None
     t_return: float | None = None
     compressor: bool | None = None
@@ -77,6 +82,11 @@ class Bucket:
     sh_n: int = 0
     room_sum: float = 0.0
     room_n: int = 0
+    rs_sum: float = 0.0  # return setpoint
+    rs_x_sum: float = 0.0  # outdoor (delayed) at that time
+    rs_n: int = 0
+    dev_sum: float = 0.0  # room - room setpoint
+    dev_n: int = 0
 
     @property
     def t_out(self) -> float | None:
@@ -150,6 +160,14 @@ class Tracker:
         if s.room is not None:
             b.room_sum += s.room
             b.room_n += 1
+            if s.room_set is not None:
+                b.dev_sum += s.room - s.room_set
+                b.dev_n += 1
+        x = s.t_out_delayed if s.t_out_delayed is not None else s.t_out
+        if s.rl_set is not None and x is not None:
+            b.rs_sum += s.rl_set
+            b.rs_x_sum += x
+            b.rs_n += 1
         self._snapshot_counters(s)
         self._last_ts = s.ts
         self._prune(s.ts)
@@ -234,22 +252,46 @@ class Tracker:
                 sum(b.heat_s for b in d7 if b.t_out is not None and b.t_out >= 16) / HOUR, 1
             ),
         }
+        dev_n = sum(b.dev_n for b in d7)
+        fig["room_dev_7d"] = round(sum(b.dev_sum for b in d7) / dev_n, 2) if dev_n else None
+        fig |= self._room_dev_by_weather(now)
         fig |= self._curve(now)
         fig |= self._spf(now)
         return fig
 
+    def _room_dev_by_weather(self, now: float) -> dict[str, float | None]:
+        """Room deviation from setpoint in cold (< 3 °C) and mild (> 8 °C) hours."""
+        cold, mild = [], []
+        for b in self._window(now, KEEP_S):
+            if not b.dev_n or b.t_out is None:
+                continue
+            dev = b.dev_sum / b.dev_n
+            if b.t_out < 3:
+                cold.append(dev)
+            elif b.t_out > 8:
+                mild.append(dev)
+        return {
+            "room_dev_cold": round(st.fmean(cold), 2) if len(cold) >= 12 else None,
+            "room_dev_mild": round(st.fmean(mild), 2) if len(mild) >= 12 else None,
+        }
+
     def _curve(self, now: float) -> dict[str, float | None]:
-        """Fit flow = a + b * outdoor from hourly heating means (14 days)."""
+        """Estimate the configured heating curve from the controller's return setpoint.
+
+        Fit return_setpoint = a + b * outdoor over hourly means (14 days) and
+        evaluate at the menu points 18 / 0 / -15 °C. Values far outside the
+        measured outdoor range are not reported.
+        """
         pts = [
-            (b.heat_t_out_sum / b.heat_n, b.heat_flow_sum / b.heat_n)
+            (b.rs_x_sum / b.rs_n, b.rs_sum / b.rs_n)
             for b in self._window(now, KEEP_S)
-            if b.heat_n >= 10
+            if b.rs_n >= 10
         ]
         res: dict[str, float | None] = {
             "curve_points": float(len(pts)),
-            "curve_flow_m10": None,
-            "curve_flow_0": None,
-            "curve_flow_p10": None,
+            "rl_set_18": None,
+            "rl_set_0": None,
+            "rl_set_m15": None,
             "curve_slope": None,
         }
         xs = [p[0] for p in pts]
@@ -259,12 +301,11 @@ class Tracker:
         sxx = sum((x - mx) ** 2 for x in xs)
         slope = sum((x - mx) * (y - my) for x, y in pts) / sxx
         a = my - slope * mx
-        res |= {
-            "curve_flow_m10": round(a - 10 * slope, 1),
-            "curve_flow_0": round(a, 1),
-            "curve_flow_p10": round(a + 10 * slope, 1),
-            "curve_slope": round(-slope, 2),
-        }
+        lo, hi = min(xs) - 10, max(xs) + 10  # limit extrapolation
+        for key, x in (("rl_set_18", 18.0), ("rl_set_0", 0.0), ("rl_set_m15", -15.0)):
+            if lo <= x <= hi:
+                res[key] = round(a + slope * x, 1)
+        res["curve_slope"] = round(-slope, 2)
         return res
 
     def _spf(self, now: float) -> dict[str, float | None]:
@@ -317,7 +358,7 @@ def advise(fig: dict[str, float | None], ctx: Context, data_days: float) -> list
     """Derive hints from figures. Ordered: warnings first."""
     hints: list[Hint] = []
     add = hints.append
-    lim_m10, lim_0, lim_spread = SYSTEM_LIMITS.get(ctx.heating_system, SYSTEM_LIMITS["underfloor"])
+    lim_spread = SPREAD_LIMITS.get(ctx.heating_system, SPREAD_LIMITS["underfloor"])
     system_name = {
         "underfloor": "Fußbodenheizung",
         "radiator": "Heizkörper",
@@ -339,56 +380,89 @@ def advise(fig: dict[str, float | None], ctx: Context, data_days: float) -> list
 
     room = fig.get("room_avg_7d")
     room_set = ctx.room_setpoint
-    room_hot = room is not None and room_set is not None and room > room_set + 0.7
-    room_cold = room is not None and room_set is not None and room < room_set - 0.7
+    dev = fig.get("room_dev_7d")
+    dev_cold, dev_mild = fig.get("room_dev_cold"), fig.get("room_dev_mild")
+    rl0, rl15, rl18 = fig.get("rl_set_0"), fig.get("rl_set_m15"), fig.get("rl_set_18")
+    curve_txt = ""
+    if rl0 is not None:
+        parts = [
+            f"{_fmt(v)} °C bei {p:.0f} °C"
+            for p, v in ((18, rl18), (0, rl0), (-15, rl15))
+            if v is not None
+        ]
+        curve_txt = " Gemessenes Rücklauf-Soll der Regelung: " + ", ".join(parts) + "."
+    method = (
+        "Laut Bedienungsanleitung in Schritten von 1–2 K, jeweils 1–2 Tage beobachten, "
+        "im meistgenutzten Raum. Kamin/Ofen in dieser Zeit nicht nutzen. Jedes Grad weniger "
+        "spart ca. 2,5 % Strom (DUH-Ratgeber)."
+    )
 
-    # Heating curve
-    f_m10, f_0 = fig.get("curve_flow_m10"), fig.get("curve_flow_0")
-    curve_high = (f_m10 is not None and f_m10 > lim_m10) or (f_0 is not None and f_0 > lim_0)
-    if curve_high and not room_cold:
-        finding = (
-            f"Gemessene Heizkurve: Vorlauf ca. {_fmt(f_0)} °C bei 0 °C und "
-            f"{_fmt(f_m10)} °C bei −10 °C außen. Richtwert für {system_name}: "
-            f"höchstens ca. {lim_0:.0f} °C bzw. {lim_m10:.0f} °C."
-        )
-        if room_hot:
-            finding += f" Die Räume sind im Mittel {_fmt(room)} °C warm, eingestellt sind {_fmt(room_set)} °C."
-        add(
-            Hint(
-                "curve_high",
-                "warning" if room_hot or not ctx.has_room_sensor else "info",
-                "Heizkurve vermutlich höher als nötig",
-                finding,
-                "Heizkurve (Parallelverschiebung/Fußpunkt) um 1 K senken, dann 1–2 Tage "
-                "beobachten, ob es warm genug bleibt. Schrittweise wiederholen. Jedes Grad "
-                "weniger Vorlauf spart ca. 2,5 % Strom (Quelle: DUH-Ratgeber).",
-                "selbst oder Fachbetrieb",
+    if ctx.has_room_sensor and dev is not None and room is not None and room_set is not None:
+        if dev > 0.5:
+            where = "parallel"
+            if dev_cold is not None and dev_mild is not None:
+                if dev_cold - dev_mild > 0.7:
+                    where = "steep"
+                elif dev_mild - dev_cold > 0.7:
+                    where = "foot"
+            if where == "steep":
+                todo = (
+                    "Zu warm vor allem bei Kälte: Heizkurve ist zu steil. "
+                    f"{MENU_CURVE} → „RL Soll -15°C“ um 1–2 K senken."
+                )
+            elif where == "foot":
+                todo = (
+                    "Zu warm vor allem bei mildem Wetter: "
+                    f"{MENU_CURVE} → „RL Soll 18°C“ und „RL Soll 0°C“ um 1–2 K senken."
+                )
+            else:
+                todo = (
+                    "Gleichmäßig zu warm: Raumsoll (HKR) um 0,5–1 K senken. Das verschiebt "
+                    "die ganze Heizkurve parallel und geht auch direkt in Home Assistant. "
+                    f"Alternativ alle Punkte unter {MENU_CURVE} um 1 K senken."
+                )
+            add(
+                Hint(
+                    "curve_lower",
+                    "info",
+                    "Heizkurve kann gesenkt werden",
+                    f"Räume im Mittel {_fmt(room)} °C, eingestellt {_fmt(room_set)} °C "
+                    f"(+{_fmt(dev)} K)." + curve_txt,
+                    todo + " " + method,
+                    "selbst",
+                )
             )
-        )
-    elif room_hot:
-        add(
-            Hint(
-                "room_hot",
-                "info",
-                "Räume wärmer als eingestellt",
-                f"Raumtemperatur im Mittel {_fmt(room)} °C, eingestellt {_fmt(room_set)} °C.",
-                "Heizkurve um 1 K senken und 1–2 Tage beobachten. Prüfen, ob Thermostate "
-                "oder Einzelraumregler sinnvoll eingestellt sind.",
-                "selbst",
+        elif dev < -0.7:
+            add(
+                Hint(
+                    "room_cold",
+                    "warning",
+                    "Räume erreichen die Solltemperatur nicht",
+                    f"Räume im Mittel {_fmt(room)} °C, eingestellt {_fmt(room_set)} °C "
+                    f"({_fmt(dev)} K)." + curve_txt,
+                    "Heizkurve nicht senken. Zuerst prüfen: Ventile/Thermostate offen, "
+                    "Fenster, Luft im System. Danach Raumsoll (HKR) oder "
+                    f"{MENU_CURVE} um 1 K anheben. Hilft das nicht, Fachbetrieb "
+                    "(hydraulischer Abgleich).",
+                    "selbst oder Fachbetrieb",
+                )
             )
-        )
-    if room_cold:
-        add(
-            Hint(
-                "room_cold",
-                "warning",
-                "Räume erreichen die Solltemperatur nicht",
-                f"Raumtemperatur im Mittel {_fmt(room)} °C, eingestellt {_fmt(room_set)} °C.",
-                "Heizkurve vorerst nicht senken. Prüfen: Ventile/Thermostate offen, "
-                "hydraulischer Abgleich, Luft im System. Bei Bedarf Fachbetrieb.",
-                "selbst oder Fachbetrieb",
+    elif rl0 is not None and ctx.heating_system == "underfloor":
+        factory = FACTORY_CURVE_UNDERFLOOR[0.0]
+        if rl0 > factory + 3:
+            add(
+                Hint(
+                    "curve_above_factory",
+                    "info",
+                    "Heizkurve höher als die Werkseinstellung",
+                    f"Rücklauf-Soll bei 0 °C außen ca. {_fmt(rl0)} °C, Werkseinstellung "
+                    f"für Fußbodenheizung {factory:.0f} °C.",
+                    "Mit einem Raumtemperatur-Sensor kann der Check prüfen, ob die Kurve "
+                    f"gesenkt werden kann. {method}",
+                    "selbst",
+                )
             )
-        )
+
     if room_set is not None and room_set > 21.5:
         add(
             Hint(

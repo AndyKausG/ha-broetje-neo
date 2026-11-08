@@ -214,11 +214,17 @@
       "defrosts_24h": {
         "name": "Defrosts 24 h"
       },
-      "curve_flow_m10": {
-        "name": "Heating curve flow at minus 10 degrees"
+      "rl_set_18": {
+        "name": "Heating curve return setpoint at 18 degrees"
       },
-      "curve_flow_0": {
-        "name": "Heating curve flow at 0 degrees"
+      "rl_set_0": {
+        "name": "Heating curve return setpoint at 0 degrees"
+      },
+      "rl_set_m15": {
+        "name": "Heating curve return setpoint at minus 15 degrees"
+      },
+      "room_dev_7d": {
+        "name": "Room vs. setpoint 7 days"
       },
       "heating_spread_7d": {
         "name": "Heating spread 7 days"
@@ -317,13 +323,13 @@
     },
     "number": {
       "room_setpoint": {
-        "name": "Room setpoint"
+        "name": "Room setpoint (heating curve shift)"
       },
       "dhw_normal_setpoint": {
         "name": "DHW normal temperature"
       },
       "dhw_min_setpoint": {
-        "name": "DHW minimum temperature"
+        "name": "DHW minimum (frost protection)"
       },
       "cooling_return_min": {
         "name": "Cooling return min"

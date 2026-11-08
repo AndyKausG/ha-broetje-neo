@@ -29,7 +29,7 @@ Entwickelt mit einer BLW NEO 18b. Für die Module IWR/GTW-08 oder ISR Plus gibt 
 |--------|---------|
 | Nur lesend als Standard | Ohne Freigabe wird nichts an die Wärmepumpe gesendet |
 | Kurze Positivliste | Geschrieben werden darf nur das, was du auch am Bedienteil einstellen kannst, plus PV-Leistung und Sperre |
-| Sichere Grenzen | Raum 15–25 °C, Warmwasser 40–55 °C (Minimum 35–50 °C), Kühlen Rücklauf min. 18–25 °C (Schutz vor Kondenswasser an der Fußbodenheizung) |
+| Sichere Grenzen | Innerhalb der Kundenebene laut Bedienungsanleitung: Raumsoll 15–25 °C, Warmwasser 40–50 °C, WW-Frostschutz 10–45 °C, Kühlen Rücklauf min. 18–25 °C (Schutz vor Kondenswasser an der Fußbodenheizung) |
 | Kein „Aus“ | Die Betriebsart „Aus“ lässt sich nicht aus HA setzen (Frostgefahr) |
 | Nicht enthalten | Falsche Fühlerwerte vorgeben, Verdichterdrehzahl vorgeben, Vorlauf/Rücklauf erzwingen, 2. Stufe/Heizstab schalten, Störungen quittieren, EVU-Freigabe erzwingen |
 | Prüfung im Kern | Jeder Schreibbefehl wird zentral geprüft, auch aus Automationen und Skripten. Die Grenzen lassen sich nicht umgehen |

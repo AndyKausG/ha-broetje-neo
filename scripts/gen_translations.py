@@ -93,11 +93,16 @@ ENTITIES: dict[str, dict[str, tuple[str, str]]] = {
         "starts_24h": ("Compressor starts 24 h", "Verdichterstarts 24 h"),
         "run_time_per_start": ("Run time per start", "Laufzeit pro Start"),
         "defrosts_24h": ("Defrosts 24 h", "Abtauungen 24 h"),
-        "curve_flow_m10": (
-            "Heating curve flow at minus 10 degrees",
-            "Heizkurve Vorlauf bei minus 10 Grad",
+        "rl_set_18": (
+            "Heating curve return setpoint at 18 degrees",
+            "Heizkurve RL-Soll bei 18 Grad",
         ),
-        "curve_flow_0": ("Heating curve flow at 0 degrees", "Heizkurve Vorlauf bei 0 Grad"),
+        "rl_set_0": ("Heating curve return setpoint at 0 degrees", "Heizkurve RL-Soll bei 0 Grad"),
+        "rl_set_m15": (
+            "Heating curve return setpoint at minus 15 degrees",
+            "Heizkurve RL-Soll bei minus 15 Grad",
+        ),
+        "room_dev_7d": ("Room vs. setpoint 7 days", "Raum Abweichung vom Soll 7 Tage"),
         "heating_spread_7d": ("Heating spread 7 days", "Spreizung Heizen 7 Tage"),
         "room_avg_7d": ("Room temperature 7 days", "Raumtemperatur 7 Tage"),
         "spf_30d": ("SPF 30 days", "Arbeitszahl 30 Tage"),
@@ -124,9 +129,15 @@ ENTITIES: dict[str, dict[str, tuple[str, str]]] = {
         "mkr2_operating_mode": ("MKR2 operating mode", "MKR2 Betriebsart"),
     },
     "number": {
-        "room_setpoint": ("Room setpoint", "Raumsolltemperatur"),
+        "room_setpoint": (
+            "Room setpoint (heating curve shift)",
+            "Raumsoll (Heizkurve verschieben)",
+        ),
         "dhw_normal_setpoint": ("DHW normal temperature", "WW Normaltemperatur"),
-        "dhw_min_setpoint": ("DHW minimum temperature", "WW Minimaltemperatur"),
+        "dhw_min_setpoint": (
+            "DHW minimum (frost protection)",
+            "WW Minimaltemperatur (Frostschutz)",
+        ),
         "cooling_return_min": ("Cooling return min", "Kühlen RLT min"),
         "mkr1_room_setpoint": ("MKR1 room setpoint", "MKR1 Raumsoll"),
         "mkr1_cooling_return_min": ("MKR1 cooling return min", "MKR1 Kühlen RLT min"),

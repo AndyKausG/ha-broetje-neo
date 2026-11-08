@@ -202,6 +202,9 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             advisor.Sample(
                 ts=now,
                 t_out=val(r.T_OUTDOOR),
+                t_out_delayed=val(r.T_OUTDOOR_DELAYED),
+                rl_set=val(r.T_RETURN_SETPOINT),
+                room_set=val(r.ROOM_SETPOINT),
                 t_flow=val(r.T_FLOW),
                 t_return=val(r.T_RETURN),
                 compressor=flag(r.HEAT_PUMP_RUNNING),
