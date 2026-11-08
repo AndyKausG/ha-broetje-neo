@@ -114,7 +114,7 @@ die Raumtemperatur getrennt bei Kälte und bei mildem Wetter:
 **Mit Pufferspeicher und Mischerkreis:** Hängen deine Räume an Mischer 1, erkennt der
 Check das automatisch (Mischer 1 aktiv und nicht ausgeschaltet). Dann gilt für die
 Räume nicht die Kurve des Heizkreises, sondern die eigene Heizkurve von Mischer 1 unter
-*Hauptmenü → Mischer 1 → Heizkurve* und der Raumsoll Mischer 1 (Grundbedienung M1; in
+*Hauptmenü → Mischer 1 → Heizkurve M1* und der Raumsoll Mischer 1 (Grundbedienung M1; in
 Home Assistant die standardmäßig deaktivierte Entität „MKR1 Raumsoll“). Der Check zeigt
 die gemessene Vorlauf-Kurve von Mischer 1 an und warnt, wenn der Puffer deutlich höher
 geladen wird, als der Mischerkreis braucht („Puffer wird höher geladen als nötig“).

@@ -36,7 +36,7 @@ SPREAD_LIMITS = {"underfloor": 6.0, "radiator": 8.0, "mixed": 7.0}
 CURVE_POINTS = (18.0, 0.0, -15.0)
 FACTORY_CURVE_UNDERFLOOR = {18.0: 22.0, 0.0: 27.0, -15.0: 30.0}
 MENU_CURVE = "Hauptmenü → Heizkreis → Heizkurve"
-MENU_CURVE_M1 = "Hauptmenü → Mischer 1 → Heizkurve"
+MENU_CURVE_M1 = "Hauptmenü → Mischer 1 → Heizkurve M1"
 
 
 @dataclass
@@ -505,7 +505,8 @@ def advise(
                     where = "steep"
                 elif dev_mild - dev_cold > 0.7:
                     where = "foot"
-            pt = "VL Soll " if mkr else "RL Soll "
+            # the manual labels the points "RLsoll" for HKR and Mischer 1/2 alike
+            pt = "RL Soll "
             if where == "steep":
                 todo = (
                     "Zu warm vor allem bei Kälte: Heizkurve ist zu steil. "

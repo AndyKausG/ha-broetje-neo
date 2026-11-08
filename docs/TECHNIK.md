@@ -326,7 +326,7 @@ Ausgabe je Hinweis: `id`, `severity` (info/warning), Titel, Befund, Vorschlag, w
 | id | Bedingung | Vorschlag (Kurzform) | Quelle |
 |----|-----------|----------------------|--------|
 | fault | R26 ≠ 0 | Code ablesen, Fachbetrieb, nicht wiederholt quittieren | – |
-| curve_lower | Raum > Soll + 0,5 K (bei MKR1 Texte und Menüpfad für Mischer 1: „Hauptmenü → Mischer 1 → Heizkurve“, Raumsoll Mischer 1 / Entität „MKR1 Raumsoll“) | kalt-mild > 0,7 K: „RL Soll −15°C“ −1…2 K; mild-kalt > 0,7 K: „RL Soll 18/0°C“ −1…2 K; sonst Raumsoll −0,5…1 K | BA Kap. 6 (Schritte 1–2 K, 1–2 Tage), DUH (≈ 2,5 %/K) |
+| curve_lower | Raum > Soll + 0,5 K (bei MKR1 Texte und Menüpfad für Mischer 1: „Hauptmenü → Mischer 1 → Heizkurve M1“, Raumsoll Mischer 1 / Entität „MKR1 Raumsoll“) | kalt-mild > 0,7 K: „RL Soll −15°C“ −1…2 K; mild-kalt > 0,7 K: „RL Soll 18/0°C“ −1…2 K; sonst Raumsoll −0,5…1 K | BA Kap. 6 (Schritte 1–2 K, 1–2 Tage), DUH (≈ 2,5 %/K) |
 | room_cold | Raum < Soll − 0,7 K | nicht senken, Ventile/Abgleich prüfen, dann +1 K | BA |
 | rooms_uneven | ≥ 2 Raumsensoren, Unterschied der 7-Tage-Mittel > 1,5 K | Abgleich/Ventile, warme Etagen drosseln | – |
 | curve_above_factory | nur HKR (nicht bei MKR1, Werkswerte gelten für den direkten Kreis); kein Raumsensor, Fußbodenheizung, RL-Soll(0 °C) > 30 °C | Raumsensor ergänzen, schrittweise senken | BA Werkseinstellung 22/27/30 °C |
