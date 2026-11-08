@@ -230,6 +230,15 @@
       "rl_set_m15": {
         "name": "Heating curve return setpoint at minus 15 degrees"
       },
+      "mkr_set_18": {
+        "name": "Mixer 1 curve flow setpoint at 18 degrees"
+      },
+      "mkr_set_0": {
+        "name": "Mixer 1 curve flow setpoint at 0 degrees"
+      },
+      "mkr_set_m15": {
+        "name": "Mixer 1 curve flow setpoint at minus 15 degrees"
+      },
       "room_dev_7d": {
         "name": "Room vs. setpoint 7 days"
       },

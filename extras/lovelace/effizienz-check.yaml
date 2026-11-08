@@ -50,6 +50,9 @@ cards:
       - entity: sensor.brotje_neo_heizkurve_rl_soll_bei_18_grad
       - entity: sensor.brotje_neo_heizkurve_rl_soll_bei_0_grad
       - entity: sensor.brotje_neo_heizkurve_rl_soll_bei_minus_15_grad
+      - entity: sensor.brotje_neo_mischer_1_heizkurve_vl_soll_bei_18_grad
+      - entity: sensor.brotje_neo_mischer_1_heizkurve_vl_soll_bei_0_grad
+      - entity: sensor.brotje_neo_mischer_1_heizkurve_vl_soll_bei_minus_15_grad
       - entity: sensor.brotje_neo_raum_abweichung_vom_soll_7_tage
       - entity: sensor.brotje_neo_kaltester_raum_abweichung_7_tage
       - entity: sensor.brotje_neo_raum_unterschied_7_tage

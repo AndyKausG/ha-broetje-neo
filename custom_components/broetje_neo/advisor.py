@@ -36,6 +36,7 @@ SPREAD_LIMITS = {"underfloor": 6.0, "radiator": 8.0, "mixed": 7.0}
 CURVE_POINTS = (18.0, 0.0, -15.0)
 FACTORY_CURVE_UNDERFLOOR = {18.0: 22.0, 0.0: 27.0, -15.0: 30.0}
 MENU_CURVE = "Hauptmenü → Heizkreis → Heizkurve"
+MENU_CURVE_M1 = "Hauptmenü → Mischer 1 → Heizkurve"
 
 
 @dataclass
@@ -46,6 +47,7 @@ class Sample:
     t_out: float | None = None
     t_out_delayed: float | None = None
     rl_set: float | None = None  # return setpoint of the controller (heating curve)
+    mkr_set: float | None = None  # flow setpoint of mixing circuit 1 (reg. 35)
     room_set: float | None = None
     t_flow: float | None = None
     t_return: float | None = None
@@ -86,6 +88,9 @@ class Bucket:
     rs_sum: float = 0.0  # return setpoint
     rs_x_sum: float = 0.0  # outdoor (delayed) at that time
     rs_n: int = 0
+    ms_sum: float = 0.0  # mixing circuit 1 flow setpoint
+    ms_x_sum: float = 0.0  # outdoor (delayed) at that time
+    ms_n: int = 0
     dev_sum: float = 0.0  # room - room setpoint
     dev_n: int = 0
     # per room sensor: [temp_sum, temp_n, dev_sum, dev_n]
@@ -180,6 +185,10 @@ class Tracker:
             b.rs_sum += s.rl_set
             b.rs_x_sum += x
             b.rs_n += 1
+        if s.mkr_set is not None and x is not None:
+            b.ms_sum += s.mkr_set
+            b.ms_x_sum += x
+            b.ms_n += 1
         self._snapshot_counters(s)
         self._last_ts = s.ts
         self._prune(s.ts)
@@ -274,7 +283,8 @@ class Tracker:
             if len(rooms) >= 2
             else None
         )
-        fig |= self._curve(now)
+        fig |= self._curve(now, "rs", "rl_set", with_meta=True)
+        fig |= self._curve(now, "ms", "mkr_set")
         fig |= self._spf(now)
         return fig
 
@@ -326,25 +336,29 @@ class Tracker:
             "room_dev_mild": round(st.fmean(mild), 2) if len(mild) >= 12 else None,
         }
 
-    def _curve(self, now: float) -> dict[str, float | None]:
-        """Estimate the configured heating curve from the controller's return setpoint.
+    def _curve(
+        self, now: float, prefix: str = "rs", name: str = "rl_set", *, with_meta: bool = False
+    ) -> dict[str, float | None]:
+        """Estimate a configured heating curve from a controller setpoint series.
 
-        Fit return_setpoint = a + b * outdoor over hourly means (14 days) and
-        evaluate at the menu points 18 / 0 / -15 °C. Values far outside the
-        measured outdoor range are not reported.
+        prefix selects the bucket fields (rs = return setpoint of the direct
+        circuit, ms = flow setpoint of mixing circuit 1). Fit setpoint =
+        a + b * outdoor over hourly means (14 days) and evaluate at the menu
+        points 18 / 0 / -15 °C outdoor. Values far outside the measured
+        outdoor range are not reported.
         """
-        pts = [
-            (b.rs_x_sum / b.rs_n, b.rs_sum / b.rs_n)
-            for b in self._window(now, KEEP_S)
-            if b.rs_n >= 10
-        ]
-        res: dict[str, float | None] = {
-            "curve_points": float(len(pts)),
-            "rl_set_18": None,
-            "rl_set_0": None,
-            "rl_set_m15": None,
-            "curve_slope": None,
-        }
+        pts = []
+        for b in self._window(now, KEEP_S):
+            n = getattr(b, f"{prefix}_n")
+            if n >= 10:
+                pts.append((getattr(b, f"{prefix}_x_sum") / n, getattr(b, f"{prefix}_sum") / n))
+        keys = ((f"{name}_18", 18.0), (f"{name}_0", 0.0), (f"{name}_m15", -15.0))
+        res: dict[str, float | None] = {}
+        if with_meta:
+            res["curve_points"] = float(len(pts))
+        res |= {k: None for k, _ in keys}
+        if with_meta:
+            res["curve_slope"] = None
         xs = [p[0] for p in pts]
         if len(pts) < 12 or max(xs) - min(xs) < 4:
             return res
@@ -353,10 +367,11 @@ class Tracker:
         slope = sum((x - mx) * (y - my) for x, y in pts) / sxx
         a = my - slope * mx
         lo, hi = min(xs) - 10, max(xs) + 10  # limit extrapolation
-        for key, x in (("rl_set_18", 18.0), ("rl_set_0", 0.0), ("rl_set_m15", -15.0)):
+        for key, x in keys:
             if lo <= x <= hi:
                 res[key] = round(a + slope * x, 1)
-        res["curve_slope"] = round(-slope, 2)
+        if with_meta:
+            res["curve_slope"] = round(-slope, 2)
         return res
 
     def _spf(self, now: float) -> dict[str, float | None]:
@@ -399,6 +414,7 @@ class Context:
     expected_spf: float | None = None
     fault: bool = False
     has_room_sensor: bool = False
+    circuit: str = "hkr"  # heated circuit: "hkr" (direct) or "mkr1" (mixing circuit 1)
 
 
 def _fmt(v: float) -> str:
@@ -457,8 +473,18 @@ def advise(
             + f". Maßgeblich ist der kälteste Raum ({coldest.get('name', coldest['entity_id'])})"
         )
     rl0, rl15, rl18 = fig.get("rl_set_0"), fig.get("rl_set_m15"), fig.get("rl_set_18")
+    ms0, ms15, ms18 = fig.get("mkr_set_0"), fig.get("mkr_set_m15"), fig.get("mkr_set_18")
+    mkr = ctx.circuit == "mkr1"
+    menu = MENU_CURVE_M1 if mkr else MENU_CURVE
     curve_txt = ""
-    if rl0 is not None:
+    if mkr and ms0 is not None:
+        parts = [
+            f"{_fmt(v)} °C bei {p:.0f} °C"
+            for p, v in ((18, ms18), (0, ms0), (-15, ms15))
+            if v is not None
+        ]
+        curve_txt = " Gemessenes Vorlauf-Soll Mischer 1: " + ", ".join(parts) + "."
+    elif not mkr and rl0 is not None:
         parts = [
             f"{_fmt(v)} °C bei {p:.0f} °C"
             for p, v in ((18, rl18), (0, rl0), (-15, rl15))
@@ -479,22 +505,32 @@ def advise(
                     where = "steep"
                 elif dev_mild - dev_cold > 0.7:
                     where = "foot"
+            pt = "VL Soll " if mkr else "RL Soll "
             if where == "steep":
                 todo = (
                     "Zu warm vor allem bei Kälte: Heizkurve ist zu steil. "
-                    f"{MENU_CURVE} → „RL Soll -15°C“ um 1–2 K senken."
+                    f"{menu} → „{pt}-15°C“ um 1–2 K senken."
                 )
             elif where == "foot":
                 todo = (
                     "Zu warm vor allem bei mildem Wetter: "
-                    f"{MENU_CURVE} → „RL Soll 18°C“ und „RL Soll 0°C“ um 1–2 K senken."
+                    f"{menu} → „{pt}18°C“ und „{pt}0°C“ um 1–2 K senken."
                 )
             else:
-                todo = (
-                    "Gleichmäßig zu warm: Raumsoll (HKR) um 0,5–1 K senken. Das verschiebt "
-                    "die ganze Heizkurve parallel und geht auch direkt in Home Assistant. "
-                    f"Alternativ alle Punkte unter {MENU_CURVE} um 1 K senken."
-                )
+                if mkr:
+                    todo = (
+                        "Gleichmäßig zu warm: Raumsoll Mischer 1 (Grundbedienung M1) um "
+                        "0,5–1 K senken. Das verschiebt die ganze Heizkurve von Mischer 1 "
+                        "parallel. In Home Assistant ist das die Entität „MKR1 Raumsoll“ "
+                        "(standardmäßig deaktiviert, kann aktiviert werden). "
+                        f"Alternativ alle Punkte unter {menu} um 1 K senken."
+                    )
+                else:
+                    todo = (
+                        "Gleichmäßig zu warm: Raumsoll (HKR) um 0,5–1 K senken. Das verschiebt "
+                        "die ganze Heizkurve parallel und geht auch direkt in Home Assistant. "
+                        f"Alternativ alle Punkte unter {MENU_CURVE} um 1 K senken."
+                    )
             add(
                 Hint(
                     "curve_lower",
@@ -521,8 +557,8 @@ def advise(
                     "Räume erreichen die Solltemperatur nicht",
                     f"{room_txt}, eingestellt {_fmt(room_set)} °C ({_fmt(dev)} K)." + curve_txt,
                     "Heizkurve nicht senken. Zuerst prüfen: Ventile/Thermostate offen, "
-                    "Fenster, Luft im System. Danach Raumsoll (HKR) oder "
-                    f"{MENU_CURVE} um 1 K anheben. Hilft das nicht, Fachbetrieb "
+                    f"Fenster, Luft im System. Danach {'Raumsoll Mischer 1' if mkr else 'Raumsoll (HKR)'} oder "
+                    f"{menu} um 1 K anheben. Hilft das nicht, Fachbetrieb "
                     "(hydraulischer Abgleich).",
                     "selbst oder Fachbetrieb",
                 )
@@ -547,7 +583,7 @@ def advise(
                 )
             )
     measured = ctx.has_room_sensor and dev is not None
-    if not measured and rl0 is not None and ctx.heating_system == "underfloor":
+    if not measured and not mkr and rl0 is not None and ctx.heating_system == "underfloor":
         factory = FACTORY_CURVE_UNDERFLOOR[0.0]
         if rl0 > factory + 3:
             add(
@@ -573,13 +609,33 @@ def advise(
                 "room_set_high",
                 "info",
                 "Hohe Raumsolltemperatur",
-                f"Raumsoll (HKR) {_fmt(room_set)} °C. Bei der BLW NEO verschiebt dieser Wert "
-                "die ganze Heizkurve. Ob die Räume wirklich so warm sind, ist ohne "
+                f"Raumsoll {'Mischer 1' if mkr else '(HKR)'} {_fmt(room_set)} °C. "
+                "Bei der BLW NEO verschiebt dieser Wert "
+                f"die ganze Heizkurve{' von Mischer 1' if mkr else ''}. Ob die Räume wirklich so warm sind, ist ohne "
                 "Raumsensor nicht bekannt.",
                 "Nicht pauschal senken. Erst einen Raumtemperatur-Sensor in den Optionen "
                 "wählen, dann zeigt der Check, ob und wo gesenkt werden kann. Faustregel: "
                 "Jedes Grad weniger Raumtemperatur spart ca. 6 % Heizenergie.",
                 "selbst",
+            )
+        )
+
+    # Buffer charged higher than the mixing circuit needs
+    if mkr and rl0 is not None and ms0 is not None and rl0 - ms0 > 3.0:
+        diff = rl0 - ms0
+        add(
+            Hint(
+                "buffer_overheat",
+                "info",
+                "Puffer wird höher geladen als nötig",
+                f"Ladeziel des Puffers (HKR, Rücklauf-Soll) bei 0 °C außen ca. {_fmt(rl0)} °C, "
+                f"Vorlauf-Soll Mischer 1 nur ca. {_fmt(ms0)} °C ({_fmt(diff)} K Unterschied).",
+                "Die Wärmepumpe erzeugt mehr Wärme, als der Mischerkreis abnimmt. Die "
+                f"Heizkurve des HKR senken ({MENU_CURVE}, oder Raumsoll HKR als Parallelverschiebung), "
+                "in kleinen Schritten, bis der Puffer nur noch ca. 2–3 K über dem Bedarf von "
+                "Mischer 1 liegt. Jedes Grad weniger spart ca. 2,5 % Strom (DUH-Ratgeber). "
+                "Danach prüfen, dass die Räume warm bleiben.",
+                "selbst oder Fachbetrieb",
             )
         )
 

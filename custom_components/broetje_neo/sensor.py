@@ -255,6 +255,7 @@ def _fig(key: str) -> ValueFn:
 def _hints_attr(c: BroetjeNeoCoordinator) -> dict[str, Any]:
     return {
         "hint_count": len(c.hints),
+        "circuit": c.circuit,
         "data_days": c.data_days,
         "hints": [
             {
@@ -315,6 +316,21 @@ ADVISOR_SENSORS: tuple[BroetjeSensorDescription, ...] = (
     ),
     _check(
         "rl_set_m15",
+        UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+    ),
+    _check(
+        "mkr_set_18",
+        UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+    ),
+    _check(
+        "mkr_set_0",
+        UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+    ),
+    _check(
+        "mkr_set_m15",
         UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
     ),

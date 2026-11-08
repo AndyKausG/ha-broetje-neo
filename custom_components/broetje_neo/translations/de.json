@@ -230,6 +230,15 @@
       "rl_set_m15": {
         "name": "Heizkurve RL-Soll bei minus 15 Grad"
       },
+      "mkr_set_18": {
+        "name": "Mischer 1 Heizkurve VL-Soll bei 18 Grad"
+      },
+      "mkr_set_0": {
+        "name": "Mischer 1 Heizkurve VL-Soll bei 0 Grad"
+      },
+      "mkr_set_m15": {
+        "name": "Mischer 1 Heizkurve VL-Soll bei minus 15 Grad"
+      },
       "room_dev_7d": {
         "name": "Raum Abweichung vom Soll 7 Tage"
       },

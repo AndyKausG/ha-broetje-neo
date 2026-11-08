@@ -103,6 +103,18 @@ ENTITIES: dict[str, dict[str, tuple[str, str]]] = {
             "Heating curve return setpoint at minus 15 degrees",
             "Heizkurve RL-Soll bei minus 15 Grad",
         ),
+        "mkr_set_18": (
+            "Mixer 1 curve flow setpoint at 18 degrees",
+            "Mischer 1 Heizkurve VL-Soll bei 18 Grad",
+        ),
+        "mkr_set_0": (
+            "Mixer 1 curve flow setpoint at 0 degrees",
+            "Mischer 1 Heizkurve VL-Soll bei 0 Grad",
+        ),
+        "mkr_set_m15": (
+            "Mixer 1 curve flow setpoint at minus 15 degrees",
+            "Mischer 1 Heizkurve VL-Soll bei minus 15 Grad",
+        ),
         "room_dev_7d": ("Room vs. setpoint 7 days", "Raum Abweichung vom Soll 7 Tage"),
         "room_dev_min_7d": ("Coldest room vs. setpoint 7 days", "Kältester Raum Abweichung 7 Tage"),
         "room_spread_7d": ("Room temperature spread 7 days", "Raum Unterschied 7 Tage"),

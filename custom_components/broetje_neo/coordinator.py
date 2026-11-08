@@ -129,6 +129,7 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         self._store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.advisor")
         self.figures: dict[str, float | None] = {}
         self.hints: list[advisor.Hint] = []
+        self.circuit = "hkr"
         self.rooms: list[dict[str, Any]] = []
         self.advice_status: str = "collecting"
         self.data_days: float = 0.0
@@ -216,6 +217,11 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             return None if raw is None else raw != 0
 
         suction, evap = val(r.T_SUCTION_GAS), val(r.T_EVAPORATION)
+        mkr_flow = val(r.T_MKR1_FLOW_SETPOINT)
+        mkr_mode = raw_value(r.MKR1_MODE, hold)
+        mkr1 = mkr_flow is not None and mkr_flow > 0 and mkr_mode is not None and mkr_mode != 0
+        self.circuit = "mkr1" if mkr1 else "hkr"
+        room_set = val(r.MKR1_ROOM_SETPOINT) if mkr1 else val(r.ROOM_SETPOINT)
         rooms = self._room_temperatures()
         now = time.time()
         self.tracker.feed(
@@ -224,7 +230,8 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
                 t_out=val(r.T_OUTDOOR),
                 t_out_delayed=val(r.T_OUTDOOR_DELAYED),
                 rl_set=val(r.T_RETURN_SETPOINT),
-                room_set=val(r.ROOM_SETPOINT),
+                mkr_set=mkr_flow,
+                room_set=room_set,
                 t_flow=val(r.T_FLOW),
                 t_return=val(r.T_RETURN),
                 compressor=flag(r.HEAT_PUMP_RUNNING),
@@ -246,7 +253,8 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         self.figures = self.tracker.figures(now)
         ctx = advisor.Context(
             heating_system=self.heating_system,
-            room_setpoint=val(r.ROOM_SETPOINT),
+            room_setpoint=room_set,
+            circuit=self.circuit,
             dhw_setpoint=val(r.DHW_NORMAL),
             expected_spf=self.expected_spf,
             fault=bool(flag(r.FAULT)),

@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.0] - 2026-11-08
+
+- **Efficiency check supports a mixing circuit 1 (MKR1):** if the flow setpoint (register 35) is above 0 and the MKR1 mode (register 107) is not off, the check uses the MKR1 room setpoint (register 108) and reports the measured MKR1 heating curve (new sensors "Mixer 1 curve flow setpoint at 18 / 0 / minus 15 degrees"). Hints then name the Mischer 1 menu path and the "MKR1 Raumsoll" entity; the factory-curve comparison is skipped.
+- New hint "Puffer wird höher geladen als nötig" when the buffer charging setpoint (HKR) is more than 3 K above the Mischer 1 flow setpoint at 0 °C outdoor.
+- The efficiency check sensor has a new attribute `circuit` (`hkr` / `mkr1`).
+
 ## [0.1.0] - 2026-11-08
 
 First release.

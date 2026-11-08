@@ -592,3 +592,17 @@ async def test_multiple_room_sensors(hass: HomeAssistant, fake_client, readonly_
     assert [(r["name"], r["avg_7d"]) for r in attrs["rooms"]] == [("DG", 20.0), ("EG", 22.0)]
     assert hass.states.get("sensor.wp_room_temperature_7_days").state == "21.0"
     assert hass.states.get("sensor.wp_room_temperature_spread_7_days").state == "2.0"
+
+
+async def test_circuit_detection(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    await _setup(hass, readonly_entry)
+    assert hass.states.get("sensor.wp_efficiency_check").attributes["circuit"] == "hkr"
+
+
+async def test_circuit_mkr1(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    fake_client.input[35] = 326
+    fake_client.holding[107] = 1
+    fake_client.holding[108] = 230
+    await _setup(hass, readonly_entry)
+    assert hass.states.get("sensor.wp_efficiency_check").attributes["circuit"] == "mkr1"
+    assert readonly_entry.runtime_data.circuit == "mkr1"

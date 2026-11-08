@@ -34,6 +34,7 @@ def _feed_days(
     room_fn=None,
     rooms_fn=None,
     rl_fn=lambda t: 27 - 0.2 * t,
+    mkr_fn=None,
     dhw_cop: float = 3.0,
 ) -> float:
     """Feed samples every 60 s; outdoor -6..+14 °C daily cycle."""
@@ -60,6 +61,7 @@ def _feed_days(
                 rooms=rooms_fn(t_out) if rooms_fn else None,
                 room_set=21.0,
                 rl_set=rl_fn(t_out),
+                mkr_set=mkr_fn(t_out) if mkr_fn else None,
                 e_th_total=e_el * 3.6,
                 e_el_total=e_el,
                 e_th_heat=e_el * 3.4,
@@ -252,3 +254,87 @@ def test_rooms_persisted() -> None:
     now = _feed_days(tr, 3, flow_fn=lambda t: 30, rooms_fn=_floors(21, 21.5, 22))
     tr2 = a.Tracker.from_dict(tr.to_dict())
     assert tr2.room_detail(now) == tr.room_detail(now)
+
+
+# ------------------------------------------------------ mixing circuit 1
+def test_mkr_curve_figures() -> None:
+    tr = a.Tracker()
+    now = _feed_days(tr, 5, flow_fn=lambda t: 30 - 0.5 * t, mkr_fn=lambda t: 32 - 0.5 * t)
+    fig = tr.figures(now)
+    assert abs(fig["mkr_set_0"] - 32) < 0.3
+    assert abs(fig["mkr_set_18"] - 23) < 0.3
+    assert abs(fig["mkr_set_m15"] - 39.5) < 0.3
+    assert abs(fig["rl_set_0"] - 27) < 0.3  # unchanged
+    assert fig["curve_points"] > 0
+    # without mkr data nothing is reported
+    tr2 = a.Tracker()
+    now2 = _feed_days(tr2, 5, flow_fn=lambda t: 30 - 0.5 * t)
+    assert tr2.figures(now2)["mkr_set_0"] is None
+
+
+def test_mkr1_rooms_too_warm_names_mixing_circuit() -> None:
+    tr = a.Tracker()
+    now = _feed_days(
+        tr, 5, flow_fn=lambda t: 30 - 0.5 * t, room=22.5, mkr_fn=lambda t: 32 - 0.5 * t
+    )
+    ctx = a.Context(room_setpoint=21.0, has_room_sensor=True, circuit="mkr1")
+    h = _hint(a.advise(tr.figures(now), ctx, 5), "curve_lower")
+    assert h is not None
+    assert "Mischer 1" in h.suggestion
+    assert "MKR1 Raumsoll" in h.suggestion
+    assert "Vorlauf-Soll Mischer 1" in h.finding
+
+
+def test_mkr1_no_factory_comparison() -> None:
+    tr = a.Tracker()
+    now = _feed_days(
+        tr,
+        5,
+        flow_fn=lambda t: 36 - 0.5 * t,
+        rl_fn=lambda t: 32 - 0.3 * t,
+        mkr_fn=lambda t: 32 - 0.3 * t,
+    )
+    fig = tr.figures(now)
+    hkr = a.advise(fig, a.Context(room_setpoint=21.0), 5)
+    mkr = a.advise(fig, a.Context(room_setpoint=21.0, circuit="mkr1"), 5)
+    assert _hint(hkr, "curve_above_factory") is not None
+    assert _hint(mkr, "curve_above_factory") is None
+
+
+def test_mkr1_room_set_high_mentions_mixer() -> None:
+    ctx = a.Context(room_setpoint=23.0, circuit="mkr1")
+    h = _hint(a.advise({}, ctx, 5), "room_set_high")
+    assert h is not None and "Mischer 1" in h.finding
+
+
+def test_buffer_overheat() -> None:
+    def hints(diff: float, circuit: str = "mkr1"):
+        tr = a.Tracker()
+        now = _feed_days(
+            tr,
+            5,
+            flow_fn=lambda t: 30 - 0.5 * t,
+            rl_fn=lambda t: 32 + diff - 0.5 * t,
+            mkr_fn=lambda t: 32 - 0.5 * t,
+        )
+        ctx = a.Context(room_setpoint=21.0, has_room_sensor=True, circuit=circuit)
+        return a.advise(tr.figures(now), ctx, 5)
+
+    h = _hint(hints(4.0), "buffer_overheat")
+    assert h is not None
+    assert h.severity == "info"
+    assert "4,0 K" in h.finding
+    assert _hint(hints(2.0), "buffer_overheat") is None
+    assert _hint(hints(4.0, "hkr"), "buffer_overheat") is None
+
+
+def test_old_stored_data_without_mkr_fields() -> None:
+    tr = a.Tracker()
+    now = _feed_days(tr, 2, flow_fn=lambda t: 30 - 0.5 * t)
+    data = tr.to_dict()
+    for b in data["buckets"]:
+        for k in ("ms_sum", "ms_x_sum", "ms_n"):
+            del b[k]
+    tr2 = a.Tracker.from_dict(data)
+    assert all(b.ms_n == 0 for b in tr2.buckets.values())
+    assert tr2.figures(now)["mkr_set_0"] is None

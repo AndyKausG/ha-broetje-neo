@@ -111,6 +111,15 @@ die Raumtemperatur getrennt bei Kälte und bei mildem Wetter:
 | Vor allem bei mildem Wetter zu warm | „RL Soll 18°C“ / „RL Soll 0°C“ um 1–2 K senken |
 | Zu kalt | nicht senken, erst Ventile/Thermostate prüfen, dann 1 K anheben |
 
+**Mit Pufferspeicher und Mischerkreis:** Hängen deine Räume an Mischer 1, erkennt der
+Check das automatisch (Mischer 1 aktiv und nicht ausgeschaltet). Dann gilt für die
+Räume nicht die Kurve des Heizkreises, sondern die eigene Heizkurve von Mischer 1 unter
+*Hauptmenü → Mischer 1 → Heizkurve* und der Raumsoll Mischer 1 (Grundbedienung M1; in
+Home Assistant die standardmäßig deaktivierte Entität „MKR1 Raumsoll“). Der Check zeigt
+die gemessene Vorlauf-Kurve von Mischer 1 an und warnt, wenn der Puffer deutlich höher
+geladen wird, als der Mischerkreis braucht („Puffer wird höher geladen als nötig“).
+Dann lohnt es sich, die Heizkurve des Heizkreises schrittweise zu senken.
+
 Expertenmenüs (Techniker/Fachmann) werden nie vorgeschlagen.
 
 ### Mehrere Raumsensoren / Mehrfamilienhaus

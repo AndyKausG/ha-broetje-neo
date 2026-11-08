@@ -275,6 +275,16 @@ Der Check schreibt nie. Er arbeitet unabhängig von allen Freigaben.
   Außentemperatur (R10, R33), VL/RL (R12/R13), RL-Soll (R34), Verdichter (R25),
   Anforderung (R41), Vierwegeventil (R27), Überhitzung (R17 − R18), Raumsoll (R101),
   Energiezähler und der Mittelwert der Raumsensoren aus der Option `room_sensors`.
+- **Mischerkreis 1 (MKR1):** Der Check erkennt MKR1 als aktiv, wenn R35 (VL-Soll MKR1)
+  einen Wert > 0 liefert und R107 (Betriebsart MKR1, Holding) ≠ 0 ist. Dann kommen
+  Raumsoll aus R108 statt R101 und zusätzlich das VL-Soll R35 ins `Sample`
+  (`mkr_set`, Bucket-Felder `ms_*`). Der Kontext `circuit` ist `mkr1` (sonst `hkr`),
+  sichtbar als Attribut `circuit` des Effizienz-Check-Sensors. Hintergrund: Räume
+  hängen dann am Mischer 1 mit eigener Heizkurve („Hauptmenü → Mischer 1 →
+  Heizkurve“) und eigenem Raumsoll (Grundbedienung M1); R34 ist nur das Ladeziel des
+  Puffers. Die Messkurve wird mit demselben Verfahren wie `rl_set_*` gefittet
+  (≥ 12 Stundenpunkte mit ≥ 10 Samples, ≥ 4 K Außentemperaturbereich, max. 10 K
+  Extrapolation) und als `mkr_set_18`, `mkr_set_0`, `mkr_set_m15` ausgegeben.
 - Die Daten werden zu **Stundenbuckets** verdichtet und 14 Tage behalten. Dazu kommen
   abgeschlossene Verdichterläufe (Ende, Dauer) und ein Zählerstand pro Tag
   (40 Tage behalten).
@@ -316,11 +326,12 @@ Ausgabe je Hinweis: `id`, `severity` (info/warning), Titel, Befund, Vorschlag, w
 | id | Bedingung | Vorschlag (Kurzform) | Quelle |
 |----|-----------|----------------------|--------|
 | fault | R26 ≠ 0 | Code ablesen, Fachbetrieb, nicht wiederholt quittieren | – |
-| curve_lower | Raum > Soll + 0,5 K | kalt-mild > 0,7 K: „RL Soll −15°C“ −1…2 K; mild-kalt > 0,7 K: „RL Soll 18/0°C“ −1…2 K; sonst Raumsoll −0,5…1 K | BA Kap. 6 (Schritte 1–2 K, 1–2 Tage), DUH (≈ 2,5 %/K) |
+| curve_lower | Raum > Soll + 0,5 K (bei MKR1 Texte und Menüpfad für Mischer 1: „Hauptmenü → Mischer 1 → Heizkurve“, Raumsoll Mischer 1 / Entität „MKR1 Raumsoll“) | kalt-mild > 0,7 K: „RL Soll −15°C“ −1…2 K; mild-kalt > 0,7 K: „RL Soll 18/0°C“ −1…2 K; sonst Raumsoll −0,5…1 K | BA Kap. 6 (Schritte 1–2 K, 1–2 Tage), DUH (≈ 2,5 %/K) |
 | room_cold | Raum < Soll − 0,7 K | nicht senken, Ventile/Abgleich prüfen, dann +1 K | BA |
 | rooms_uneven | ≥ 2 Raumsensoren, Unterschied der 7-Tage-Mittel > 1,5 K | Abgleich/Ventile, warme Etagen drosseln | – |
-| curve_above_factory | kein Raumsensor, Fußbodenheizung, RL-Soll(0 °C) > 30 °C | Raumsensor ergänzen, schrittweise senken | BA Werkseinstellung 22/27/30 °C |
-| room_set_high | R101 > 21,5 °C und kein Raumsensor | erst Raumsensor, nicht pauschal senken (R101 = Parallelverschiebung) | BA |
+| curve_above_factory | nur HKR (nicht bei MKR1, Werkswerte gelten für den direkten Kreis); kein Raumsensor, Fußbodenheizung, RL-Soll(0 °C) > 30 °C | Raumsensor ergänzen, schrittweise senken | BA Werkseinstellung 22/27/30 °C |
+| buffer_overheat | nur MKR1; `rl_set_0` − `mkr_set_0` > 3 K (Puffer-Ladeziel R34 deutlich über dem Bedarf von Mischer 1) | Heizkurve HKR bzw. Raumsoll HKR schrittweise senken, Puffer ca. 2–3 K über dem Bedarf von Mischer 1; Räume prüfen | DUH (≈ 2,5 %/K) |
+| room_set_high | R101 (bei MKR1: R108) > 21,5 °C und kein Raumsensor | erst Raumsensor, nicht pauschal senken (R101 = Parallelverschiebung) | BA |
 | heating_limit | > 6 h Heizbetrieb bei ≥ 16 °C in 7 d | „Heizgrenze“ prüfen, ca. 15 °C | DUH |
 | cycling | Median-Laufzeit < 20 min bei ≥ 5 Starts (warning) oder > 24 Starts/Tag und < 30 min (info) | Ventile offen, Kurve nicht zu hoch; Fachbetrieb: Hysterese, Mindestlaufzeit, Durchfluss | Faustregel |
 | spread_high / spread_low | Spreizung > 6 K (FBH) / 8 K (HK) / 7 K (gemischt) bzw. < 2 K | Durchfluss/Abgleich bzw. Pumpe prüfen lassen | Faustregel |
