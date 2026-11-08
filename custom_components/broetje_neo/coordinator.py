@@ -230,9 +230,10 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         values: dict[str, list[float]] = {}
         info: dict[str, dict[str, Any]] = {}
         for eid in self.room_sensors:
+            # grouping comes from the configuration, so a sensor that is
+            # temporarily unavailable keeps its room/floor in the list
             st = self.hass.states.get(eid)
-            if st is None or (v := advisor.safe_float(st.state)) is None:
-                continue
+            name = st.name if st is not None else eid
             floor = self._sensor_floor(eid) if self.room_grouping == "floor" else None
             if floor is not None:
                 key = f"floor:{floor.floor_id}"
@@ -241,15 +242,12 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
                 )
             else:
                 key = eid
-                entry = info.setdefault(key, {"name": st.name, "level": None, "sensors": []})
-            entry["sensors"].append(st.name)
-            values.setdefault(key, []).append(v)
+                entry = info.setdefault(key, {"name": name, "level": None, "sensors": []})
+            entry["sensors"].append(name)
+            if st is not None and (v := advisor.safe_float(st.state)) is not None:
+                values.setdefault(key, []).append(v)
         self._room_info = info
         return {k: round(sum(v) / len(v), 2) for k, v in values.items()}
-
-    def _room_name(self, eid: str) -> str:
-        st = self.hass.states.get(eid)
-        return st.name if st is not None else eid
 
     def _update_advice(self, data: RegisterData) -> None:
         inp, hold = data[Table.INPUT], data[Table.HOLDING]
@@ -323,13 +321,11 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         )
         rooms_list = []
         for room in self.tracker.room_detail(now):
-            key = room["entity_id"]
-            meta = self._room_info.get(key) or {
-                "name": self._room_name(key),
-                "level": None,
-                "sensors": [],
-            }
-            rooms_list.append({**room, **meta})
+            # only rooms/floors of the current configuration; history of removed
+            # sensors or of the other grouping mode must not drive the advice
+            meta = self._room_info.get(room["entity_id"])
+            if meta is not None:
+                rooms_list.append({**room, **meta})
         if rooms_list and all(x["level"] is not None for x in rooms_list):
             rooms_list.sort(key=lambda x: x["level"], reverse=True)
         else:

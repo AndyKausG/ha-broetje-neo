@@ -689,3 +689,33 @@ async def test_rooms_grouping_sensor(hass: HomeAssistant, fake_client, readonly_
     await _setup(hass, entry)
     rooms = hass.states.get("sensor.wp_efficiency_check").attributes["rooms"]
     assert len(rooms) == 3
+
+
+async def test_removed_room_sensor_is_ignored(
+    hass: HomeAssistant, fake_client, readonly_entry
+) -> None:
+    """History of a sensor that is no longer configured must not drive the advice."""
+    hass.states.async_set("sensor.eg", "21.0", {"friendly_name": "EG"})
+    hass.states.async_set("sensor.alt", "15.0", {"friendly_name": "Alt"})
+    entry = MockConfigEntry(
+        domain=readonly_entry.domain,
+        data=readonly_entry.data,
+        options={"room_sensors": ["sensor.eg", "sensor.alt"], "room_grouping": "sensor"},
+        unique_id="rm",
+    )
+    await _setup(hass, entry)
+    names = [r["name"] for r in hass.states.get("sensor.wp_efficiency_check").attributes["rooms"]]
+    assert names == ["Alt", "EG"]
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, "room_sensors": ["sensor.eg"]}
+    )
+    await hass.async_block_till_done()
+    attrs = hass.states.get("sensor.wp_efficiency_check").attributes
+    assert [r["name"] for r in attrs["rooms"]] == ["EG"]
+    assert attrs["coldest_room"] == "EG"
+    # an unavailable configured sensor stays in the list (no new value, history kept)
+    hass.states.async_set("sensor.eg", "unavailable", {"friendly_name": "EG"})
+    await entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    attrs = hass.states.get("sensor.wp_efficiency_check").attributes
+    assert [r["name"] for r in attrs["rooms"]] == ["EG"]
