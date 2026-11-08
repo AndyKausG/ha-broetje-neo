@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.0] - 2026-11-08
+
+- New wall tablet dashboard `extras/dashboard/broetje-neo-dashboard.yaml` (sections view) for plants with a buffer and mixing circuit 1: status, separate view of heating demand, heating circuit pump, buffer charging and compressor, efficiency tiles, run times, 30-day transition-period chart (daily run times vs. mean outdoor temperature and heating limit), 24 h chart and an animated plant schema that only moves while pumps, fan or compressor run. Needs `apexcharts-card` and `button-card` from HACS.
+- New package `extras/packages/broetje_neo_dashboard.yaml`: prioritised status sensor, "compressor heating" binary sensor, last heating start, start of heating season, run times today / yesterday / 7 days, heating limit input.
+- New documentation `docs/DASHBOARD.md`.
+
 ## [0.3.1] - 2026-11-08
 
 - The "MKR1 flow setpoint" sensor is now enabled by default. It is unknown while mixing circuit 1 is not active (mode register 107 off or flow setpoint register 35 at 0); "MKR2 flow setpoint" follows the same rule but stays disabled by default.

@@ -141,6 +141,8 @@ Abgeleitete Sensoren (nur Rechnung, keine Register):
 
 Zwei Kartenvarianten in `extras/lovelace/`: `heat-pump-card.yaml` (Heizkreis direkt, Vorlauf/Rücklauf der Wärmepumpe) und `heat-pump-card-mischer.yaml` (Puffer + Mischerkreis; Heizkreis zeigt den MKR1-Vorlaufsoll, kein Rücklauf, da der NEO-RKM keine gemessenen Mischerwerte liefert).
 
+Wandtablet-Dashboard mit Status-Logik, Laufzeiten und animiertem Schema: `docs/DASHBOARD.md`.
+
 ## 3. Schreiben
 
 ### 3.1 Grundsatz

@@ -342,6 +342,8 @@ Anzeige: `binary_sensor.…_netzbetreiber_steuert` und
 | `extras/lovelace/heat-pump-card.yaml` | Anlagenbild (Heizkreis direkt) mit der `lovelace-heat-pump-card` |
 | `extras/lovelace/heat-pump-card-mischer.yaml` | Anlagenbild für Anlagen mit Puffer + Mischerkreis (siehe „Dashboard: Welche Karte passt zu meiner Anlage?“) |
 | `extras/lovelace/effizienz-check.yaml` | Effizienz-Check mit Hinweisen und Kennzahlen |
+| `extras/dashboard/broetje-neo-dashboard.yaml` | Wandtablet-Dashboard (Puffer + MKR1): Status, „Heizt sie schon?“, Laufzeiten, 30-Tage-Übergangszeit, 24-h-Verlauf, animiertes Anlagenschema. Details: [`docs/DASHBOARD.md`](docs/DASHBOARD.md) |
+| `extras/packages/broetje_neo_dashboard.yaml` | Hilfssensoren dazu: Status, Heizstart, Heizperiode, Laufzeiten heute/gestern/7 Tage |
 
 **Package einbinden:** Datei nach `/config/packages/` kopieren, in
 `configuration.yaml` eintragen:
