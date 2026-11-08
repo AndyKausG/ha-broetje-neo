@@ -183,3 +183,12 @@ def test_cooling_is_not_counted_as_defrost() -> None:
     for i in range(10):
         tr.feed(a.Sample(ts=T0 + i * 60, t_out=25, defrost=i % 2 == 1, demand="cooling"))
     assert tr.figures(T0 + 600)["defrosts_24h"] == 0
+
+
+def test_room_set_high_only_without_room_sensor() -> None:
+    fig: dict = {}
+    with_sensor = a.advise(fig, a.Context(room_setpoint=23.0, has_room_sensor=True), 0)
+    without = a.advise(fig, a.Context(room_setpoint=23.0, has_room_sensor=False), 0)
+    assert all(h.id != "room_set_high" for h in with_sensor)
+    h = next(h for h in without if h.id == "room_set_high")
+    assert "Nicht pauschal senken" in h.suggestion

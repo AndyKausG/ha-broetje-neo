@@ -465,15 +465,22 @@ def advise(fig: dict[str, float | None], ctx: Context, data_days: float) -> list
                 )
             )
 
-    if room_set is not None and room_set > 21.5:
+    # Without a room sensor only: with one, the measured room temperature
+    # decides (curve_lower / room_cold). On the BLW NEO the room setpoint HKR
+    # is the parallel shift of the heating curve (operating manual), so a
+    # high value does not necessarily mean warm rooms.
+    if room_set is not None and room_set > 21.5 and not ctx.has_room_sensor:
         add(
             Hint(
                 "room_set_high",
                 "info",
                 "Hohe Raumsolltemperatur",
-                f"Eingestellte Raumtemperatur {_fmt(room_set)} °C.",
-                "Faustregel: Jedes Grad weniger Raumtemperatur spart ca. 6 % Heizenergie. "
-                "Wenig genutzte Räume kühler halten.",
+                f"Raumsoll (HKR) {_fmt(room_set)} °C. Bei der BLW NEO verschiebt dieser Wert "
+                "die ganze Heizkurve. Ob die Räume wirklich so warm sind, ist ohne "
+                "Raumsensor nicht bekannt.",
+                "Nicht pauschal senken. Erst einen Raumtemperatur-Sensor in den Optionen "
+                "wählen, dann zeigt der Check, ob und wo gesenkt werden kann. Faustregel: "
+                "Jedes Grad weniger Raumtemperatur spart ca. 6 % Heizenergie.",
                 "selbst",
             )
         )

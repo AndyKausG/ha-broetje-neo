@@ -319,7 +319,7 @@ Ausgabe je Hinweis: `id`, `severity` (info/warning), Titel, Befund, Vorschlag, w
 | curve_lower | Raum > Soll + 0,5 K | kalt-mild > 0,7 K: „RL Soll −15°C“ −1…2 K; mild-kalt > 0,7 K: „RL Soll 18/0°C“ −1…2 K; sonst Raumsoll −0,5…1 K | BA Kap. 6 (Schritte 1–2 K, 1–2 Tage), DUH (≈ 2,5 %/K) |
 | room_cold | Raum < Soll − 0,7 K | nicht senken, Ventile/Abgleich prüfen, dann +1 K | BA |
 | curve_above_factory | kein Raumsensor, Fußbodenheizung, RL-Soll(0 °C) > 30 °C | Raumsensor ergänzen, schrittweise senken | BA Werkseinstellung 22/27/30 °C |
-| room_set_high | R101 > 21,5 °C | ca. 6 % je K (Faustregel) | – |
+| room_set_high | R101 > 21,5 °C und kein Raumsensor | erst Raumsensor, nicht pauschal senken (R101 = Parallelverschiebung) | BA |
 | heating_limit | > 6 h Heizbetrieb bei ≥ 16 °C in 7 d | „Heizgrenze“ prüfen, ca. 15 °C | DUH |
 | cycling | Median-Laufzeit < 20 min bei ≥ 5 Starts (warning) oder > 24 Starts/Tag und < 30 min (info) | Ventile offen, Kurve nicht zu hoch; Fachbetrieb: Hysterese, Mindestlaufzeit, Durchfluss | Faustregel |
 | spread_high / spread_low | Spreizung > 6 K (FBH) / 8 K (HK) / 7 K (gemischt) bzw. < 2 K | Durchfluss/Abgleich bzw. Pumpe prüfen lassen | Faustregel |
