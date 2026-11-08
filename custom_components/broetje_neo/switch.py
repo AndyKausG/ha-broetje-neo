@@ -1,6 +1,7 @@
 """Price lock switch for the Brötje NEO integration.
 
-Uses the manufacturer's utility-lock override (reg. 149/150) to pause the
+Uses the manufacturer's utility-lock override (reg. 149/150), or optionally an
+external switch (e.g. Shelly with an NC relay in the EVU release line), to pause the
 heat pump during expensive hours, exactly like a lock signal from the grid
 operator. The heat pump is built for such locks. Guard rails (coordinator):
 maximum duration, minimum pause between locks, no lock below -10 °C outdoor,
@@ -46,6 +47,16 @@ class BroetjePriceLockSwitch(BroetjeNeoEntity, SwitchEntity):
     def is_on(self) -> bool | None:
         """Return lock state."""
         return self.coordinator.price_lock_active
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Backend and problems."""
+        c = self.coordinator
+        return {
+            "backend": c.lock_switch or "modbus (Register 149/150)",
+            "problem": c.price_lock_problem,
+            "max_minutes": c.price_lock_max_s // 60,
+        }
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Lock."""

@@ -428,3 +428,91 @@ async def test_price_lock_option_capped(hass: HomeAssistant, fake_client, config
     )
     await _setup(hass, entry)
     assert entry.runtime_data.price_lock_max_s == 120 * 60
+
+
+# ------------------------------------------- price lock via external switch
+async def _setup_shelly(hass: HomeAssistant, config_entry: MockConfigEntry) -> MockConfigEntry:
+    from homeassistant.setup import async_setup_component
+
+    assert await async_setup_component(hass, "input_boolean", {"input_boolean": {"relay": {}}})
+    assert await async_setup_component(
+        hass,
+        "switch",
+        {
+            "switch": [
+                {
+                    "platform": "template",
+                    "switches": {
+                        "shelly": {
+                            "value_template": "{{ is_state('input_boolean.relay', 'on') }}",
+                            "turn_on": {
+                                "action": "input_boolean.turn_on",
+                                "target": {"entity_id": "input_boolean.relay"},
+                            },
+                            "turn_off": {
+                                "action": "input_boolean.turn_off",
+                                "target": {"entity_id": "input_boolean.relay"},
+                            },
+                        }
+                    },
+                }
+            ]
+        },
+    )
+    await hass.async_block_till_done()
+    entry = MockConfigEntry(
+        domain=config_entry.domain,
+        data=config_entry.data,
+        options={**config_entry.options, "price_lock_switch": "switch.shelly"},
+        unique_id="shelly",
+    )
+    await _setup(hass, entry)
+    return entry
+
+
+async def test_shelly_lock(hass: HomeAssistant, fake_client, config_entry) -> None:
+    entry = await _setup_shelly(hass, config_entry)
+    assert hass.states.get("switch.wp_price_lock").state == STATE_OFF
+    await _lock(hass, True)
+    await hass.async_block_till_done()
+    assert hass.states.get("input_boolean.relay").state == STATE_ON
+    assert hass.states.get("switch.shelly").state == STATE_ON
+    assert fake_client.holding[150] == 0  # no Modbus override used
+    fake_client.input[32] = 0  # heat pump reports EVU lock
+    coordinator = entry.runtime_data
+    coordinator._lock_verify_at -= 1000  # noqa: SLF001
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get("input_boolean.relay").state == STATE_ON
+    assert coordinator.price_lock_problem is None
+    await _lock(hass, False)
+    assert hass.states.get("input_boolean.relay").state == STATE_OFF
+
+
+async def test_shelly_lock_without_effect(hass: HomeAssistant, fake_client, config_entry) -> None:
+    entry = await _setup_shelly(hass, config_entry)
+    await _lock(hass, True)
+    await hass.async_block_till_done()
+    coordinator = entry.runtime_data
+    coordinator._lock_verify_at -= 1000  # noqa: SLF001 - EVU release stays 1
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get("input_boolean.relay").state == STATE_OFF
+    assert coordinator.price_lock_problem
+    st = hass.states.get("sensor.wp_efficiency_check")
+    assert st.attributes["hints"][0]["id"] == "price_lock_ineffective"
+    coordinator._lock_ended = None  # noqa: SLF001 - skip pause check
+    with pytest.raises(HomeAssistantError, match="nicht an"):
+        await _lock(hass, True)
+
+
+async def test_shelly_stale_on_is_released(hass: HomeAssistant, fake_client, config_entry) -> None:
+    from homeassistant.setup import async_setup_component
+
+    assert await async_setup_component(hass, "input_boolean", {"input_boolean": {"relay": {}}})
+    await hass.services.async_call(
+        "input_boolean", "turn_on", {"entity_id": "input_boolean.relay"}, blocking=True
+    )
+    await _setup_shelly(hass, config_entry)
+    await hass.async_block_till_done()
+    assert hass.states.get("input_boolean.relay").state == STATE_OFF

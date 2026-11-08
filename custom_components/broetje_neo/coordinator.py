@@ -25,6 +25,7 @@ from .const import (
     CONF_EXPECTED_SPF,
     CONF_HEATING_SYSTEM,
     CONF_PRICE_LOCK_MAX,
+    CONF_PRICE_LOCK_SWITCH,
     CONF_PV_MAX_POWER,
     CONF_PV_WATCHDOG,
     CONF_ROOM_SENSORS,
@@ -45,6 +46,7 @@ from .const import (
 )
 from .registers import (
     EVU_ACTIVE,
+    EVU_RELEASE,
     EVU_VALUE,
     PV_POWER,
     READ_BLOCKS,
@@ -106,6 +108,10 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         )
         self._lock_started: float | None = None
         self._lock_ended: float | None = None
+        # optional external switch (e.g. Shelly + NC relay in the EVU line)
+        self.lock_switch: str | None = opts.get(CONF_PRICE_LOCK_SWITCH) or None
+        self._lock_verify_at: float | None = None
+        self.price_lock_problem: str | None = None
         self._lock_day: str | None = None
         self._lock_day_s: float = 0.0  # locked seconds today (finished locks)
 
@@ -237,6 +243,19 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             hints = [
                 h for h in hints if h.id in ("fault", "no_room_sensor", "room_set_high", "dhw_high")
             ]
+        if self.price_lock_problem:
+            hints.insert(
+                0,
+                advisor.Hint(
+                    "price_lock_ineffective",
+                    "warning",
+                    "Preissperre wirkt nicht",
+                    self.price_lock_problem,
+                    "Preissperre bleibt deaktiviert, bis die Integration neu geladen wird. "
+                    "Anschluss am EVU-Eingang von einer Elektrofachkraft prüfen lassen.",
+                    "Fachbetrieb",
+                ),
+            )
         self.hints = hints
         self.advice_status = advisor.status(hints, self.data_days)
 
@@ -265,9 +284,41 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             _LOGGER.error("PV watchdog reset failed: %s", err)
 
     def _lock_active(self, data: RegisterData | None) -> bool:
+        if self.lock_switch:
+            st = self.hass.states.get(self.lock_switch)
+            return st is not None and st.state == "on"
         if data is None:
             return False
         return raw_value(EVU_ACTIVE, data[Table.HOLDING]) == 1
+
+    def _lock_supported(self) -> bool:
+        if self.lock_switch:
+            st = self.hass.states.get(self.lock_switch)
+            return st is not None and st.state in ("on", "off")
+        return self.data is not None and EVU_ACTIVE.address in self.data[Table.HOLDING]
+
+    async def _switch(self, on: bool) -> None:
+        if not self.allow_price_lock:
+            raise HomeAssistantError("Preissperre ist in den Optionen deaktiviert")
+        try:
+            await self.hass.services.async_call(
+                "switch",
+                "turn_on" if on else "turn_off",
+                {"entity_id": self.lock_switch},
+                blocking=True,
+            )
+        except Exception as err:  # noqa: BLE001 - any failure of the external device
+            raise HomeAssistantError(
+                f"Schalten von {self.lock_switch} fehlgeschlagen: {err}"
+            ) from err
+
+    async def _engage_lock(self) -> None:
+        if self.lock_switch:
+            await self._switch(True)
+            self._lock_verify_at = time.monotonic() + safety.PRICE_LOCK_VERIFY_SECONDS
+        else:
+            await self._write_raw(EVU_VALUE, 0)
+            await self._write_raw(EVU_ACTIVE, 1)
 
     async def _async_price_lock_guard(self, data: RegisterData) -> None:
         """Release the price lock when it is stale, too long or too cold."""
@@ -276,6 +327,17 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         reason = None
         if self._lock_started is None:
             reason = "left over from a previous run"
+        elif (
+            self.lock_switch
+            and self._lock_verify_at is not None
+            and time.monotonic() > self._lock_verify_at
+            and raw_value(EVU_RELEASE, data[Table.INPUT])
+        ):
+            reason = "no effect at the heat pump"
+            self.price_lock_problem = (
+                f"Die Sperre über {self.lock_switch} kommt an der Wärmepumpe nicht an "
+                "(EVU-Freigabe bleibt aktiv). Verdrahtung prüfen lassen."
+            )
         elif time.monotonic() - self._lock_started > self.price_lock_max_s:
             reason = f"maximum duration of {self.price_lock_max_s // 60} min reached"
         elif self._locked_today_s() >= safety.PRICE_LOCK_MAX_MINUTES_PER_DAY * 60:
@@ -289,7 +351,8 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         _LOGGER.warning("Releasing price lock: %s", reason)
         try:
             await self._release_price_lock()
-            data[Table.HOLDING][EVU_ACTIVE.address] = 0
+            if not self.lock_switch:
+                data[Table.HOLDING][EVU_ACTIVE.address] = 0
         except HomeAssistantError as err:
             _LOGGER.error("Releasing price lock failed: %s", err)
 
@@ -304,7 +367,11 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         return self._lock_day_s + running
 
     async def _release_price_lock(self) -> None:
-        await self._write_raw(EVU_ACTIVE, 0)
+        if self.lock_switch:
+            await self._switch(False)
+        else:
+            await self._write_raw(EVU_ACTIVE, 0)
+        self._lock_verify_at = None
         if self._lock_started is not None:
             self._locked_today_s()  # roll the day if needed
             self._lock_day_s += time.monotonic() - self._lock_started
@@ -367,8 +434,10 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             return
         if self._lock_active(self.data):
             return
-        if self.data is None or EVU_ACTIVE.address not in self.data[Table.HOLDING]:
-            raise HomeAssistantError("Preissperre wird von dieser Anlage nicht unterstützt")
+        if not self._lock_supported():
+            raise HomeAssistantError("Preissperre ist nicht verfügbar")
+        if self.price_lock_problem:
+            raise HomeAssistantError(self.price_lock_problem)
         if self._lock_ended is not None:
             pause = time.monotonic() - self._lock_ended
             need = safety.PRICE_LOCK_MIN_PAUSE_MINUTES * 60
@@ -388,8 +457,7 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
                 f"Preissperre bei Außentemperatur unter "
                 f"{safety.PRICE_LOCK_MIN_OUTDOOR_TEMP:.0f} °C nicht erlaubt"
             )
-        await self._write_raw(EVU_VALUE, 0)
-        await self._write_raw(EVU_ACTIVE, 1)
+        await self._engage_lock()
         self._lock_started = time.monotonic()
         self.async_update_listeners()
         await self.async_request_refresh()
@@ -397,7 +465,7 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
     @property
     def price_lock_active(self) -> bool | None:
         """Return True while the price lock holds the heat pump."""
-        if self.data is None or EVU_ACTIVE.address not in self.data[Table.HOLDING]:
+        if not self._lock_supported():
             return None
         return self._lock_active(self.data)
 

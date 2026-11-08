@@ -26,6 +26,7 @@ from .const import (
     CONF_HEATING_SYSTEM,
     CONF_MODEL,
     CONF_PRICE_LOCK_MAX,
+    CONF_PRICE_LOCK_SWITCH,
     CONF_PV_MAX_POWER,
     CONF_PV_WATCHDOG,
     CONF_ROOM_SENSORS,
@@ -180,6 +181,10 @@ class BroetjeNeoOptionsFlow(OptionsFlow):
                     CONF_PRICE_LOCK_MAX,
                     default=opts.get(CONF_PRICE_LOCK_MAX, PRICE_LOCK_MAX_MINUTES_DEFAULT),
                 ): _num(30, PRICE_LOCK_MAX_MINUTES_LIMIT, 10),
+                vol.Optional(
+                    CONF_PRICE_LOCK_SWITCH,
+                    description={"suggested_value": opts.get(CONF_PRICE_LOCK_SWITCH)},
+                ): selector.EntitySelector(selector.EntitySelectorConfig(domain="switch")),
                 vol.Required(
                     CONF_SCAN_INTERVAL,
                     default=opts.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),

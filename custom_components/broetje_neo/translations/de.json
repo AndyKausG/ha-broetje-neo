@@ -33,6 +33,7 @@
           "allow_pv": "PV-/Leistungssteuerung erlauben",
           "allow_price_lock": "Preissperre erlauben",
           "price_lock_max_minutes": "Preissperre max. Dauer (min)",
+          "price_lock_switch": "Preissperre über externen Schalter (optional, z.B. Shelly)",
           "scan_interval": "Abfrageintervall (s)",
           "pv_watchdog": "PV-Watchdog (s, 0 = aus)",
           "pv_max_power": "Maximale PV-Leistungsvorgabe (W)"
@@ -40,7 +41,8 @@
         "data_description": {
           "allow_write": "Betriebsart (nicht 'Aus') und Sollwerte in sicheren Grenzen. Aus = nur lesen.",
           "allow_pv": "PV-Leistungsvorgabe (Reg. 125) inkl. Watchdog. Wann und wie stark die WP läuft, entscheidet das NEO-RKM selbst.",
-          "allow_price_lock": "Wärmepumpe bei hohen Strompreisen wie bei einer EVU-Sperre pausieren. Max. 2 h am Stück und 6 h pro Tag, mind. 60 min Pause, nicht unter -10 °C außen."
+          "allow_price_lock": "Wärmepumpe bei hohen Strompreisen wie bei einer EVU-Sperre pausieren. Max. 2 h am Stück und 6 h pro Tag, mind. 60 min Pause, nicht unter -10 °C außen.",
+          "price_lock_switch": "Leer = Modbus-Register 149/150. Schalter an = Sperre. Anschluss nur durch eine Elektrofachkraft, siehe README."
         }
       }
     }

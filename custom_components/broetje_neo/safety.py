@@ -70,6 +70,9 @@ PRICE_LOCK_MAX_MINUTES_LIMIT: Final = 120
 PRICE_LOCK_MAX_MINUTES_PER_DAY: Final = 360
 PRICE_LOCK_MIN_PAUSE_MINUTES: Final = 60
 PRICE_LOCK_MIN_OUTDOOR_TEMP: Final = -10.0
+# External switch (e.g. Shelly): the lock must show up as "EVU release off"
+# (reg. 32) within this time, otherwise the lock is released as ineffective.
+PRICE_LOCK_VERIFY_SECONDS: Final = 120
 
 
 class WriteNotAllowed(Exception):

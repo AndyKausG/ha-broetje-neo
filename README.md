@@ -87,10 +87,31 @@ Daraus entstehen verständliche Hinweise mit drei Teilen:
 
 Die Integration **ändert dabei selbst nichts**. Die Hinweise sind Vorschläge.
 
+### Heizkurve: so hilft der Check
+
+Die BLW NEO regelt nach der **Rücklauf**-Solltemperatur (der Vorlauf liegt ca. 5 K
+darüber). Die Heizkurve besteht aus drei Punkten. Als Eigentümer stellst du sie in der
+Kundenebene unter *Hauptmenü → Heizkreis → Heizkurve* ein:
+„RL Soll 18°C“, „RL Soll 0°C“, „RL Soll −15°C“ und die „Heizgrenze“.
+
+Der Check liest den aktuellen Rücklauf-Sollwert der Regelung aus und zeigt dir die
+**tatsächlich eingestellte Kurve** an diesen drei Punkten. Mit Raumsensor vergleicht er
+die Raumtemperatur getrennt bei Kälte und bei mildem Wetter:
+
+| Befund | Vorschlag |
+|--------|-----------|
+| Gleichmäßig zu warm | Raumsoll (HKR) um 0,5–1 K senken. Das ist laut Anleitung die **Parallelverschiebung der Heizkurve** und geht auch direkt in Home Assistant |
+| Vor allem bei Kälte zu warm | Kurve zu steil: „RL Soll −15°C“ um 1–2 K senken |
+| Vor allem bei mildem Wetter zu warm | „RL Soll 18°C“ / „RL Soll 0°C“ um 1–2 K senken |
+| Zu kalt | nicht senken, erst Ventile/Thermostate prüfen, dann 1 K anheben |
+
+Expertenmenüs (Techniker/Fachmann) werden nie vorgeschlagen.
+
 | Prüfung | Grundlage |
 |---------|-----------|
-| Heizkurve höher als nötig (gemessen, nicht eingestellt) | DUH-Ratgeber: flache, niedrige Heizkurve, 1 K Absenkung ≈ 2,5 % Strom |
-| Räume wärmer bzw. kälter als eingestellt (mit Raumsensor) | DUH-Ratgeber: absenken, solange es warm bleibt |
+| Heizkurve: zu hoch, zu steil oder Fußpunkt zu hoch (mit Raumsensor) | Bedienungsanleitung BLW NEO: Schritte 1–2 K, je 1–2 Tage beobachten; DUH-Ratgeber: 1 K ≈ 2,5 % Strom |
+| Räume kälter als eingestellt (dann wird nicht gesenkt) | Bedienungsanleitung: Raumtemperatur bleibt bei richtiger Kurve konstant |
+| Heizkurve über der Werkseinstellung (ohne Raumsensor) | Werkseinstellung Fußbodenheizung: RL-Soll 22 / 27 / 30 °C bei 18 / 0 / −15 °C |
 | Heizbetrieb bei mildem Wetter (Heizgrenze) | DUH-Ratgeber: Heizgrenze ca. 15 °C möglich |
 | Takten (kurze Laufzeiten) | Faustregel: ≥ 20–30 min pro Start |
 | Spreizung zu groß/zu klein (Durchfluss, Pumpe) | Faustregel je Heizsystem |
@@ -140,6 +161,7 @@ Integration → **Konfigurieren**:
 | PV-/Leistungssteuerung erlauben | aus | PV-Überschuss an die Wärmepumpe melden |
 | Preissperre erlauben | aus | Wärmepumpe bei hohem Strompreis pausieren |
 | Preissperre max. Dauer | 120 min | 30–120 min |
+| Preissperre über externen Schalter | – | z.B. Shelly, siehe unten; leer = Modbus |
 | Abfrageintervall | 15 s | 5–300 s |
 | PV-Watchdog | 120 s | PV-Vorgabe verfällt, wenn sie nicht erneuert wird (0 = aus) |
 | Max. PV-Leistungsvorgabe | 6000 W | Obergrenze |
@@ -179,7 +201,32 @@ Bedienung: Schalter *Preissperre* von Hand oder automatisch über das Package
 (Preisgrenze einstellen, *WP Preissperre automatisch* einschalten).
 
 Hinweis: Nicht jede RKM-Firmware bietet die nötigen Register (147–150). Dann ist der
-Schalter „nicht verfügbar“.
+Schalter „nicht verfügbar“. Als Alternative geht ein externer Schalter (nächster Abschnitt).
+
+### Preissperre über einen Shelly (optional)
+
+Statt über Modbus kann die Sperre über einen Schaltaktor am **EVU-Eingang** der
+Wärmepumpe erfolgen. Vorteil: Eine Abschaltautomatik im Shelly beendet die Sperre auch
+dann, wenn Home Assistant ausfällt.
+
+> ⚠️ **Nur durch eine Elektrofachkraft.** Der EVU-Eingang ist ein 230-V-Eingang
+> (Installationsanleitung BLW NEO B, Anschlussleitungen). Ohne EVU-Sperre ist er
+> überbrückt, d.h. **Spannung = Freigabe**.
+
+Empfohlener, ausfallsicherer Aufbau:
+1. Der Shelly schaltet ein **Koppelrelais mit Öffner-Kontakt**. Dieser Öffner liegt in der
+   Freigabeleitung zum EVU-Eingang, bei vorhandenem Netzbetreiber-Kontakt **in Reihe** dazu.
+   Dann kann der Shelly nur zusätzlich sperren, eine Sperre des Netzbetreibers aber nie aufheben.
+2. Shelly aus oder stromlos → Öffner geschlossen → **Wärmepumpe läuft normal**.
+   Shelly an → Freigabe unterbrochen → Sperre.
+3. Im Shelly einstellen: **Auto-Aus nach 7200 s** (2 h) und **Zustand nach Stromausfall: Aus**.
+4. In der Integration unter *Preissperre über externen Schalter* den Shelly auswählen.
+   Den Shelly selbst nicht direkt schalten. Schaltet ihn jemand ohne die Integration ein,
+   schaltet sie ihn sofort wieder aus.
+
+Die Integration prüft jede Sperre: Meldet die Wärmepumpe nach 2 Minuten weiterhin
+„EVU-Freigabe“, hebt sie die Sperre auf, deaktiviert die Funktion und zeigt einen Hinweis
+im Effizienz-Check („Verdrahtung prüfen lassen“).
 
 ---
 

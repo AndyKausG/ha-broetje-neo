@@ -172,6 +172,8 @@ TEXT = {
         "allow_price_lock": "Allow price lock",
         "allow_price_lock_desc": "Pause the heat pump during expensive hours like a utility lock. Max. 2 h per lock and 6 h per day, min. 60 min pause, not below -10 °C outdoor.",
         "price_lock_max_minutes": "Price lock max. duration (min)",
+        "price_lock_switch": "Price lock via external switch (optional, e.g. Shelly)",
+        "price_lock_switch_desc": "Empty = Modbus registers 149/150. Switch on = lock. Wiring only by a qualified electrician, see README.",
         "scan_interval": "Polling interval (s)",
         "pv_watchdog": "PV watchdog (s, 0 = off)",
         "pv_watchdog_desc": "Register 125 (PV power) is reset to 0 if not refreshed within this time, on HA start and on stop.",
@@ -198,6 +200,8 @@ TEXT = {
         "allow_price_lock": "Preissperre erlauben",
         "allow_price_lock_desc": "Wärmepumpe bei hohen Strompreisen wie bei einer EVU-Sperre pausieren. Max. 2 h am Stück und 6 h pro Tag, mind. 60 min Pause, nicht unter -10 °C außen.",
         "price_lock_max_minutes": "Preissperre max. Dauer (min)",
+        "price_lock_switch": "Preissperre über externen Schalter (optional, z.B. Shelly)",
+        "price_lock_switch_desc": "Leer = Modbus-Register 149/150. Schalter an = Sperre. Anschluss nur durch eine Elektrofachkraft, siehe README.",
         "scan_interval": "Abfrageintervall (s)",
         "pv_watchdog": "PV-Watchdog (s, 0 = aus)",
         "pv_watchdog_desc": "Register 125 (PV-Leistung) wird auf 0 gesetzt, wenn es nicht innerhalb dieser Zeit erneuert wird, sowie beim Start und Stopp von HA.",
@@ -250,6 +254,7 @@ def build(lang: str) -> dict:
                             "allow_pv",
                             "allow_price_lock",
                             "price_lock_max_minutes",
+                            "price_lock_switch",
                             "scan_interval",
                             "pv_watchdog",
                             "pv_max_power",
@@ -259,6 +264,7 @@ def build(lang: str) -> dict:
                         "allow_write": t["allow_write_desc"],
                         "allow_pv": t["allow_pv_desc"],
                         "allow_price_lock": t["allow_price_lock_desc"],
+                        "price_lock_switch": t["price_lock_switch_desc"],
                     },
                 }
             }

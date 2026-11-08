@@ -33,6 +33,7 @@
           "allow_pv": "Allow PV / power control",
           "allow_price_lock": "Allow price lock",
           "price_lock_max_minutes": "Price lock max. duration (min)",
+          "price_lock_switch": "Price lock via external switch (optional, e.g. Shelly)",
           "scan_interval": "Polling interval (s)",
           "pv_watchdog": "PV watchdog (s, 0 = off)",
           "pv_max_power": "Maximum PV power target (W)"
@@ -40,7 +41,8 @@
         "data_description": {
           "allow_write": "Operating mode (not 'off') and setpoints within safe limits. Off = read-only.",
           "allow_pv": "PV power target (reg. 125) incl. watchdog. The NEO-RKM decides itself when and how strongly the heat pump runs.",
-          "allow_price_lock": "Pause the heat pump during expensive hours like a utility lock. Max. 2 h per lock and 6 h per day, min. 60 min pause, not below -10 °C outdoor."
+          "allow_price_lock": "Pause the heat pump during expensive hours like a utility lock. Max. 2 h per lock and 6 h per day, min. 60 min pause, not below -10 °C outdoor.",
+          "price_lock_switch": "Empty = Modbus registers 149/150. Switch on = lock. Wiring only by a qualified electrician, see README."
         }
       }
     }
