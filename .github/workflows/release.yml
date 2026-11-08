@@ -1,23 +1,74 @@
+# Creates a GitHub release (tag vX.Y.Z) whenever the version in manifest.json
+# changes on main. The release text is the matching section of CHANGELOG.md.
+# HACS then shows version numbers instead of commit ids and offers updates.
+#
+# Release a new version: raise "version" in manifest.json, add a section
+# "## [X.Y.Z] - date" to CHANGELOG.md, merge to main. Nothing else.
+# Existing tags are never touched (same version again = nothing happens).
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    branches:
+      - main
+    paths:
+      - custom_components/broetje_neo/manifest.json
+      - .github/workflows/release.yml
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  zip:
+  release:
+    name: Create release from manifest version
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Set version in manifest
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Read version
+        id: version
         run: |
-          v="${GITHUB_REF_NAME#v}"
-          jq --arg v "$v" '.version=$v' custom_components/broetje_neo/manifest.json > m.json
-          mv m.json custom_components/broetje_neo/manifest.json
-      - run: cd custom_components/broetje_neo && zip -r ../../broetje_neo.zip .
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: broetje_neo.zip
+          version=$(jq -r .version custom_components/broetje_neo/manifest.json)
+          if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid version in manifest.json: $version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if the release already exists
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "Release ${{ steps.version.outputs.tag }} exists - nothing to do."
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract release notes from CHANGELOG.md
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          awk -v v="${{ steps.version.outputs.version }}" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "No CHANGELOG entry for ${{ steps.version.outputs.version }}." > notes.md
+          fi
+          cat notes.md
+
+      - name: Create release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.version.outputs.version }}" \
+            --notes-file notes.md

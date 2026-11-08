@@ -365,7 +365,12 @@ pip install -r requirements_test.txt
 ruff check . && ruff format --check . && pytest -q
 ```
 
-Übersetzungen werden mit `scripts/gen_translations.py` erzeugt.
+Übersetzungen werden mit `scripts/gen_translations.py` erzeugt. Hinweise für
+Mitwirkende (Tests, Sicherheitsregeln, Releases): [AGENTS.md](AGENTS.md).
+
+Releases entstehen automatisch: Version in `manifest.json` erhöhen, Abschnitt in
+`CHANGELOG.md` ergänzen, nach `main` mergen. Der Workflow `release.yml` legt dann das
+Release `vX.Y.Z` an, HACS bietet das Update an.
 </details>
 
 ## Lizenz und Herkunft

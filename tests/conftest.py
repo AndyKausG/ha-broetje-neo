@@ -1,22 +1,45 @@
-"""Fixtures for Brötje NEO tests."""
+"""Pytest configuration for the Brötje NEO tests.
+
+The integration tests need ``pytest-homeassistant-custom-component``.
+The pure tests (register map, efficiency check, analysis script) run without
+Home Assistant: they load their module straight from the file.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Generator
 from dataclasses import dataclass, field
-from unittest.mock import patch
+from pathlib import Path
+import sys
 
-from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
-import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-from custom_components.broetje_neo.const import (
-    CONF_ALLOW_PRICE_LOCK,
-    CONF_ALLOW_PV,
-    CONF_ALLOW_WRITE,
-    CONF_UNIT_ID,
-    DOMAIN,
-)
+try:  # Home Assistant test harness available?
+    import pytest_homeassistant_custom_component  # noqa: F401
+
+    HAS_HA = True
+except ImportError:  # pragma: no cover - plain environment
+    HAS_HA = False
+
+
+_HA_MARKERS = ("homeassistant", "custom_components.broetje_neo")
+
+
+def pytest_ignore_collect(collection_path, config):
+    """Skip the HA based tests when the harness is not installed.
+
+    A test module counts as HA based when it imports Home Assistant, the harness
+    or the integration package (the pure tests load their module straight from
+    the file instead). No list to maintain for new test files.
+    """
+    if HAS_HA or collection_path.suffix != ".py" or not collection_path.name.startswith("test_"):
+        return None
+    try:
+        source = collection_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    return True if any(marker in source for marker in _HA_MARKERS) else None
 
 
 def _s16(v: int) -> int:
@@ -119,52 +142,65 @@ class FakeModbusClient:
         return _Result()
 
 
-@pytest.fixture(autouse=True)
-def auto_enable_custom_integrations(enable_custom_integrations):
-    """Enable custom integrations."""
-    return
+if HAS_HA:
+    from collections.abc import Generator
+    from unittest.mock import patch
 
+    from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PORT
+    import pytest
+    from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-@pytest.fixture
-def fake_client() -> Generator[type[FakeModbusClient]]:
-    """Patch the Modbus client everywhere."""
-    FakeModbusClient.instances = []
-    FakeModbusClient.input = default_input()
-    FakeModbusClient.holding = default_holding()
-    FakeModbusClient.fail_reads = False
-    FakeModbusClient.missing = set()
-    with (
-        patch(
-            "custom_components.broetje_neo.coordinator.AsyncModbusTcpClient",
-            FakeModbusClient,
-        ),
-        patch(
-            "custom_components.broetje_neo.config_flow.AsyncModbusTcpClient",
-            FakeModbusClient,
-        ),
-        patch("custom_components.broetje_neo.coordinator.MIN_WRITE_INTERVAL", 0),
-    ):
-        yield FakeModbusClient
-
-
-@pytest.fixture
-def config_entry() -> MockConfigEntry:
-    """Config entry."""
-    return MockConfigEntry(
-        domain=DOMAIN,
-        title="WP",
-        unique_id="192.0.2.10:502:1",
-        data={CONF_NAME: "WP", CONF_HOST: "192.0.2.10", CONF_PORT: 502, CONF_UNIT_ID: 1},
-        options={CONF_ALLOW_WRITE: True, CONF_ALLOW_PV: True, CONF_ALLOW_PRICE_LOCK: True},
+    from custom_components.broetje_neo.const import (
+        CONF_ALLOW_PRICE_LOCK,
+        CONF_ALLOW_PV,
+        CONF_ALLOW_WRITE,
+        CONF_UNIT_ID,
+        DOMAIN,
     )
 
+    @pytest.fixture(autouse=True)
+    def auto_enable_custom_integrations(enable_custom_integrations):
+        """Enable custom integrations."""
+        return
 
-@pytest.fixture
-def readonly_entry() -> MockConfigEntry:
-    """Config entry with default (read-only) options."""
-    return MockConfigEntry(
-        domain=DOMAIN,
-        title="WP",
-        unique_id="192.0.2.10:502:1",
-        data={CONF_NAME: "WP", CONF_HOST: "192.0.2.10", CONF_PORT: 502, CONF_UNIT_ID: 1},
-    )
+    @pytest.fixture
+    def fake_client() -> Generator[type[FakeModbusClient]]:
+        """Patch the Modbus client everywhere."""
+        FakeModbusClient.instances = []
+        FakeModbusClient.input = default_input()
+        FakeModbusClient.holding = default_holding()
+        FakeModbusClient.fail_reads = False
+        FakeModbusClient.missing = set()
+        with (
+            patch(
+                "custom_components.broetje_neo.coordinator.AsyncModbusTcpClient",
+                FakeModbusClient,
+            ),
+            patch(
+                "custom_components.broetje_neo.config_flow.AsyncModbusTcpClient",
+                FakeModbusClient,
+            ),
+            patch("custom_components.broetje_neo.coordinator.MIN_WRITE_INTERVAL", 0),
+        ):
+            yield FakeModbusClient
+
+    @pytest.fixture
+    def config_entry() -> MockConfigEntry:
+        """Config entry."""
+        return MockConfigEntry(
+            domain=DOMAIN,
+            title="WP",
+            unique_id="192.0.2.10:502:1",
+            data={CONF_NAME: "WP", CONF_HOST: "192.0.2.10", CONF_PORT: 502, CONF_UNIT_ID: 1},
+            options={CONF_ALLOW_WRITE: True, CONF_ALLOW_PV: True, CONF_ALLOW_PRICE_LOCK: True},
+        )
+
+    @pytest.fixture
+    def readonly_entry() -> MockConfigEntry:
+        """Config entry with default (read-only) options."""
+        return MockConfigEntry(
+            domain=DOMAIN,
+            title="WP",
+            unique_id="192.0.2.10:502:1",
+            data={CONF_NAME: "WP", CONF_HOST: "192.0.2.10", CONF_PORT: 502, CONF_UNIT_ID: 1},
+        )

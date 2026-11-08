@@ -1,8 +1,24 @@
-"""Register decoding tests (no Home Assistant needed)."""
+"""Register decoding tests (pure, no harness needed)."""
+
+import importlib.util
+from pathlib import Path
+import sys
 
 import pytest
 
-from custom_components.broetje_neo import registers as r
+_PKG = Path(__file__).resolve().parents[1] / "custom_components" / "broetje_neo"
+
+
+def _load(name: str):
+    """Load a pure module straight from its file (no Home Assistant needed)."""
+    spec = importlib.util.spec_from_file_location(f"{name}_under_test", _PKG / f"{name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+r = _load("registers")
 
 
 def test_int16_signed_scaled() -> None:

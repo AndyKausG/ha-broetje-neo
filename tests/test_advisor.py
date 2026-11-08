@@ -2,7 +2,23 @@
 
 from __future__ import annotations
 
-from custom_components.broetje_neo import advisor as a
+import importlib.util
+from pathlib import Path
+import sys
+
+_PKG = Path(__file__).resolve().parents[1] / "custom_components" / "broetje_neo"
+
+
+def _load(name: str):
+    """Load a pure module straight from its file (no Home Assistant needed)."""
+    spec = importlib.util.spec_from_file_location(f"{name}_under_test", _PKG / f"{name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+a = _load("advisor")
 
 T0 = 1_760_000_000.0  # fixed start
 
