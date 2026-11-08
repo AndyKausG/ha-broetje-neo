@@ -332,6 +332,7 @@ def _check(
 
 def _heat_limit_attr(c: BroetjeNeoCoordinator) -> dict[str, Any]:
     d = dict(c.heat_limit_detail)
+    d["setting"] = c.heating_limit_setting
     if d.get("confirmed_at") is not None:
         d["confirmed_at"] = dt_util.utc_from_timestamp(d["confirmed_at"]).isoformat()
     return d
@@ -409,6 +410,15 @@ ADVISOR_SENSORS: tuple[BroetjeSensorDescription, ...] = (
         device_class=SensorDeviceClass.TEMPERATURE,
         icon="mdi:thermometer-lines",
         attr_fn=_heat_limit_attr,
+    ),
+    BroetjeSensorDescription(
+        key="heating_limit_setting",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        icon="mdi:thermometer-lines",
+        value_fn=lambda c: c.heating_limit_setting,
     ),
     _check("spf_30d", precision=2),
     _check("spf_heating_30d", precision=2),

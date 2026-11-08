@@ -489,6 +489,7 @@ class Context:
     room_setpoint: float | None = None
     dhw_setpoint: float | None = None
     expected_spf: float | None = None
+    heating_limit: float | None = None  # set on the controller (option), None = unknown
     fault: bool = False
     has_room_sensor: bool = False
     circuit: str = "hkr"  # heated circuit: "hkr" (direct), "mkr1" or "mkr2" (mixing circuit)
@@ -729,6 +730,23 @@ def advise(
                 f"In den letzten 7 Tagen {_fmt(warm_h)} h Heizbetrieb bei 16 °C und mehr außen.",
                 "Heizgrenze bzw. Sommerumschaltung prüfen. In gut gedämmten Häusern sind "
                 "ca. 15 °C oft möglich (DUH-Ratgeber).",
+                "selbst oder Fachbetrieb",
+            )
+        )
+
+    # Observed heating limit above the value entered as controller setting
+    observed = fig.get("heating_limit_observed")
+    if ctx.heating_limit and observed is not None and observed > ctx.heating_limit + 1.0:
+        add(
+            Hint(
+                "heating_limit_mismatch",
+                "info",
+                "Heizgrenze höher als eingetragen",
+                f"Heizanforderungen starten noch bei {_fmt(observed)} °C (verzögerte "
+                f"Außentemperatur), eingetragen ist eine Heizgrenze von {_fmt(ctx.heating_limit)} °C.",
+                "Wert am Bedienteil mit dem in den Optionen eingetragenen vergleichen. "
+                "Stimmt er, prüfen, ob eine Raum- oder Zeitprogrammanforderung die "
+                "Heizgrenze übersteuert.",
                 "selbst oder Fachbetrieb",
             )
         )

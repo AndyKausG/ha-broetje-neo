@@ -764,3 +764,5 @@ async def test_heating_limit_observed_sensor(
     assert state.attributes["starts_60d"] == 0
     assert state.attributes["confirmed_at"] is None
     assert state.attributes["unit_of_measurement"] == "°C"
+    assert state.attributes["setting"] is None
+    assert hass.states.get("sensor.wp_heating_limit_set").state == STATE_UNKNOWN

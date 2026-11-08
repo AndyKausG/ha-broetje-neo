@@ -458,3 +458,11 @@ def test_heating_limit_persisted() -> None:
     for b in old["buckets"]:
         del b["t_del_sum"], b["t_del_n"], b["demand_heat_n"]
     assert a.Tracker.from_dict(old).figures(now)["heating_limit_observed"] is None
+
+
+def test_heating_limit_mismatch_hint() -> None:
+    fig = {"heating_limit_observed": 17.0}
+    ids = lambda ctx: [h.id for h in a.advise(fig, ctx, 10, [])]  # noqa: E731
+    assert "heating_limit_mismatch" in ids(a.Context(heating_limit=15.0))
+    assert "heating_limit_mismatch" not in ids(a.Context(heating_limit=16.5))
+    assert "heating_limit_mismatch" not in ids(a.Context())

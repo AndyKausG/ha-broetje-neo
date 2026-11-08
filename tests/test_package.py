@@ -202,7 +202,7 @@ async def _setup_dashboard_packages(hass: HomeAssistant, config_entry) -> MockCo
     entry = await _setup_de(hass, config_entry)
     conf = {
         "template": ana["template"] + dash["template"],
-        "input_number": ana["input_number"] | dash["input_number"],
+        "input_number": ana["input_number"],
         "utility_meter": ana["utility_meter"],
     }
     for domain, value in conf.items():

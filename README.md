@@ -231,6 +231,7 @@ Integration → **Konfigurieren**:
 | Raumtemperatur-Sensoren | – | einer oder mehrere, für den Effizienz-Check |
 | Raumsensoren zusammenfassen | Nach Stockwerk | Mittelwert pro Stockwerk der Bereiche, oder jeder Sensor einzeln |
 | Geplante Jahresarbeitszahl | 0 (unbekannt) | Vergleichswert, z.B. aus dem Förderantrag |
+| Heizgrenze laut Bedienteil | 0 (unbekannt) | Optional. Die Integration lernt die Heizgrenze selbst; ein eingetragener Wert dient zum Vergleich |
 | Einstellungen schreiben erlauben | aus | Betriebsart (ohne „Aus“) und Sollwerte in den sicheren Grenzen |
 | PV-/Leistungssteuerung erlauben | aus | PV-Überschuss an die Wärmepumpe melden |
 | Preissperre erlauben | aus | Wärmepumpe bei hohem Strompreis pausieren |

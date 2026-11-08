@@ -31,6 +31,7 @@
           "room_sensors": "Raumtemperatur-Sensoren (für den Effizienz-Check)",
           "room_grouping": "Raumsensoren zusammenfassen",
           "expected_spf": "Geplante Jahresarbeitszahl (0 = unbekannt)",
+          "heating_limit": "Heizgrenze laut Bedienteil (0 = unbekannt, wird sonst gelernt)",
           "grid_signal": "Signal des Netzbetreibers (optional, z.B. Steuerbox / SG-Ready als Binärsensor)",
           "allow_write": "Einstellungen schreiben erlauben",
           "allow_pv": "PV-/Leistungssteuerung erlauben",
@@ -292,6 +293,9 @@
       },
       "heating_limit_observed": {
         "name": "Heizgrenze beobachtet"
+      },
+      "heating_limit_setting": {
+        "name": "Heizgrenze eingestellt"
       },
       "spf_30d": {
         "name": "Arbeitszahl 30 Tage"

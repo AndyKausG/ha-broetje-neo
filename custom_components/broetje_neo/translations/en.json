@@ -31,6 +31,7 @@
           "room_sensors": "Room temperature sensors (for the efficiency check)",
           "room_grouping": "Group room sensors",
           "expected_spf": "Planned seasonal performance factor (0 = unknown)",
+          "heating_limit": "Heating limit as set on the controller (0 = unknown)",
           "grid_signal": "Grid operator signal (optional, e.g. control box / SG-Ready via binary sensor)",
           "allow_write": "Allow writing settings",
           "allow_pv": "Allow PV / power control",
@@ -292,6 +293,9 @@
       },
       "heating_limit_observed": {
         "name": "Heating limit observed"
+      },
+      "heating_limit_setting": {
+        "name": "Heating limit set"
       },
       "spf_30d": {
         "name": "SPF 30 days"

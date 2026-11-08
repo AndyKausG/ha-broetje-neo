@@ -31,6 +31,7 @@ from .const import (
     CONF_EXPECTED_SPF,
     CONF_GRID_SIGNAL,
     CONF_HEATING_CIRCUIT,
+    CONF_HEATING_LIMIT,
     CONF_HEATING_SYSTEM,
     CONF_PRICE_LOCK_MAX,
     CONF_PRICE_LOCK_SWITCH,
@@ -135,6 +136,7 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         self.heating_system: str = opts.get(CONF_HEATING_SYSTEM, DEFAULT_HEATING_SYSTEM)
         self.room_sensors: list[str] = list(opts.get(CONF_ROOM_SENSORS, []))
         self.expected_spf: float | None = opts.get(CONF_EXPECTED_SPF) or None
+        self.heating_limit_setting: float | None = opts.get(CONF_HEATING_LIMIT) or None
         self.tracker = advisor.Tracker()
         self._store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.advisor")
         self.figures: dict[str, float | None] = {}
@@ -318,6 +320,7 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             circuit=self.circuit,
             dhw_setpoint=val(r.DHW_NORMAL),
             expected_spf=self.expected_spf,
+            heating_limit=self.heating_limit_setting,
             fault=bool(flag(r.FAULT)),
             has_room_sensor=bool(self.room_sensors),
         )

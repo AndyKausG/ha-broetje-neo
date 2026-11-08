@@ -3,7 +3,8 @@
 ## [0.5.0] - 2026-11-08
 
 - New sensor "Heating limit observed" (efficiency check, read-only). The heating limit is not available via Modbus, so it is learned from operation: the delayed outdoor temperature at each start of a heating demand is kept for 60 days; the highest value (from 3 starts) becomes a candidate and is confirmed once at least 6 hours at 1 K above it passed without heating demand in the last 14 days. The last confirmed value is kept through winter and follows a change on the controller in the next transition period. Attributes: candidate, confirmed_at, starts_60d, warm_hours_without_demand_14d.
-- Dashboard: tile and 30-day chart line for the learned heating limit; the manual input is kept for comparison.
+- New option "Heating limit as set on the controller" (`heating_limit`, 0 = unknown) and sensor "Heating limit set". The efficiency check reports when the observed limit is more than 1 K above the entered value.
+- Dashboard: tile and 30-day chart lines for the learned and the entered heating limit; the `input_number.wpd_heizgrenze` of the dashboard package is removed.
 
 ## [0.4.0] - 2026-11-08
 

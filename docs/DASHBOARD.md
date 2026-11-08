@@ -40,9 +40,10 @@ Kacheln mit „Entität nicht gefunden“ bei `wpd_*` / `wpa_*`: Packages nicht 
 Prüfen unter *Entwicklerwerkzeuge → YAML → Konfiguration prüfen*, danach HA neu starten.
 
 Heizgrenze: über Modbus nicht lesbar. Der Effizienz-Check lernt sie aus dem Betrieb
-(`sensor.brotje_neo_heizgrenze_beobachtet`, siehe `docs/TECHNIK.md` 5.2). Optional zum
-Vergleich den Wert vom Bedienteil in `input_number.wpd_heizgrenze` (`initial`) eintragen.
-Beide erscheinen als Linie im 30-Tage-Diagramm.
+(`sensor.brotje_neo_heizgrenze_beobachtet`, siehe `docs/TECHNIK.md` 5.2). Optional den
+Wert vom Bedienteil in den Optionen der Integration eintragen („Heizgrenze laut
+Bedienteil“) -> `sensor.brotje_neo_heizgrenze_eingestellt`. Beide erscheinen als Linie
+im 30-Tage-Diagramm; liegt die gelernte mehr als 1 K darüber, meldet der Effizienz-Check das.
 
 ## Status-Logik (`sensor.wpd_status`)
 
