@@ -1,0 +1,362 @@
+# Brötje NEO – Auswertung (Arbeitszahl, PV-Anteil, Takten) und PV-Überschuss-Vorgabe
+# Lizenz: MIT (siehe LICENSE im Repo-Root)
+#
+# Einbindung (configuration.yaml):
+#   homeassistant:
+#     packages: !include_dir_named packages
+# Datei nach /config/packages/broetje_neo_analytics.yaml kopieren.
+#
+# ============================================================================
+# ANPASSEN (Platzhalter "anpassen_" ersetzen)
+# 1. Die drei Quell-Entitäten unten (PV-Erzeugung, Netzbezug, Einspeisung,
+#    jeweils Leistung in W, Werte >= 0) eintragen.
+#    Hat dein Zähler nur einen saldierten Wert (+Bezug/-Einspeisung), trage ihn
+#    bei Netzbezug ein und nutze die auskommentierten Varianten.
+# 2. Entity-IDs der Integration: Annahme Gerätename "Brötje NEO" und
+#    HA-Sprache Deutsch -> Präfix "brotje_neo_". Bei anderem Gerätenamen per
+#    Suchen/Ersetzen anpassen.
+# ============================================================================
+
+template:
+  - sensor:
+      # ---------------------------------------------------------- Quellen
+      - name: "WPA PV Erzeugung"
+        unique_id: wpa_pv_erzeugung
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: "{{ [states('sensor.anpassen_pv_leistung') | float(0), 0] | max }}"
+        availability: "{{ has_value('sensor.anpassen_pv_leistung') }}"
+
+      - name: "WPA Netzbezug"
+        unique_id: wpa_netzbezug
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: "{{ [states('sensor.anpassen_netzbezug') | float(0), 0] | max }}"
+        # saldiert: "{{ [states('sensor.anpassen_netz_saldo') | float(0), 0] | max }}"
+        availability: "{{ has_value('sensor.anpassen_netzbezug') }}"
+
+      - name: "WPA Netzeinspeisung"
+        unique_id: wpa_netzeinspeisung
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: "{{ [states('sensor.anpassen_einspeisung') | float(0), 0] | max }}"
+        # saldiert: "{{ [0 - states('sensor.anpassen_netz_saldo') | float(0), 0] | max }}"
+        availability: "{{ has_value('sensor.anpassen_einspeisung') }}"
+
+      # ------------------------------------------- Leistung nach Betriebsart
+      - name: "WPA Leistung elektrisch Heizen"
+        unique_id: wpa_p_el_heizen
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: >
+          {{ states('sensor.brotje_neo_elektrische_leistung') | float(0)
+             if states('sensor.brotje_neo_anforderung') == 'heating' else 0 }}
+        availability: "{{ has_value('sensor.brotje_neo_elektrische_leistung') }}"
+
+      - name: "WPA Leistung elektrisch Warmwasser"
+        unique_id: wpa_p_el_ww
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: >
+          {{ states('sensor.brotje_neo_elektrische_leistung') | float(0)
+             if states('sensor.brotje_neo_anforderung') == 'hot_water' else 0 }}
+        availability: "{{ has_value('sensor.brotje_neo_elektrische_leistung') }}"
+
+      - name: "WPA Leistung thermisch Heizen"
+        unique_id: wpa_p_th_heizen
+        unit_of_measurement: kW
+        device_class: power
+        state_class: measurement
+        state: >
+          {{ states('sensor.brotje_neo_heizleistung') | float(0)
+             if states('sensor.brotje_neo_anforderung') == 'heating' else 0 }}
+        availability: "{{ has_value('sensor.brotje_neo_heizleistung') }}"
+
+      - name: "WPA Leistung thermisch Warmwasser"
+        unique_id: wpa_p_th_ww
+        unit_of_measurement: kW
+        device_class: power
+        state_class: measurement
+        state: >
+          {{ states('sensor.brotje_neo_heizleistung') | float(0)
+             if states('sensor.brotje_neo_anforderung') == 'hot_water' else 0 }}
+        availability: "{{ has_value('sensor.brotje_neo_heizleistung') }}"
+
+      # ------------------------------------------------------------- PV
+      # Hausverbrauch = PV + Bezug - Einspeisung (inkl. WP)
+      # PV-Überschuss für WP = PV - (Hausverbrauch - WP)
+      - name: "WPA PV-Überschuss für WP"
+        unique_id: wpa_pv_ueberschuss_wp
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set pv = states('sensor.wpa_pv_erzeugung') | float(0) %}
+          {% set bezug = states('sensor.wpa_netzbezug') | float(0) %}
+          {% set einsp = states('sensor.wpa_netzeinspeisung') | float(0) %}
+          {% set wp = states('sensor.brotje_neo_elektrische_leistung') | float(0) %}
+          {% set rest = pv + bezug - einsp - wp %}
+          {{ [pv - rest, 0] | max | round(0) }}
+        availability: >
+          {{ has_value('sensor.wpa_pv_erzeugung') and has_value('sensor.wpa_netzbezug')
+             and has_value('sensor.wpa_netzeinspeisung')
+             and has_value('sensor.brotje_neo_elektrische_leistung') }}
+
+      - name: "WPA PV-Leistung in WP"
+        unique_id: wpa_pv_in_wp
+        unit_of_measurement: W
+        device_class: power
+        state_class: measurement
+        state: >
+          {% set wp = states('sensor.brotje_neo_elektrische_leistung') | float(0) %}
+          {{ [wp, states('sensor.wpa_pv_uberschuss_fur_wp') | float(0)] | min }}
+        availability: "{{ has_value('sensor.wpa_pv_uberschuss_fur_wp') }}"
+
+      # -------------------------------------------------- Kennzahlen
+      - name: "WPA Arbeitszahl heute"
+        unique_id: wpa_az_tag
+        state_class: measurement
+        state: >
+          {% set s = states('sensor.wpa_strom_tag') | float(0) %}
+          {{ (states('sensor.wpa_waerme_tag') | float(0) / s) | round(2) if s > 0.05 else none }}
+
+      - name: "WPA Arbeitszahl Monat"
+        unique_id: wpa_az_monat
+        state_class: measurement
+        state: >
+          {% set s = states('sensor.wpa_strom_monat') | float(0) %}
+          {{ (states('sensor.wpa_waerme_monat') | float(0) / s) | round(2) if s > 0.5 else none }}
+
+      - name: "WPA Arbeitszahl Jahr"
+        unique_id: wpa_az_jahr
+        state_class: measurement
+        state: >
+          {% set s = states('sensor.wpa_strom_jahr') | float(0) %}
+          {{ (states('sensor.wpa_waerme_jahr') | float(0) / s) | round(2) if s > 1 else none }}
+
+      - name: "WPA Arbeitszahl Heizen Monat"
+        unique_id: wpa_az_heizen_monat
+        state_class: measurement
+        state: >
+          {% set s = states('sensor.wpa_strom_heizen_monat') | float(0) %}
+          {{ (states('sensor.wpa_waerme_heizen_monat') | float(0) / s) | round(2) if s > 0.5 else none }}
+
+      - name: "WPA Arbeitszahl Warmwasser Monat"
+        unique_id: wpa_az_ww_monat
+        state_class: measurement
+        state: >
+          {% set s = states('sensor.wpa_strom_ww_monat') | float(0) %}
+          {{ (states('sensor.wpa_waerme_ww_monat') | float(0) / s) | round(2) if s > 0.2 else none }}
+
+      - name: "WPA PV-Anteil heute"
+        unique_id: wpa_pv_anteil_tag
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >
+          {% set s = states('sensor.wpa_strom_tag') | float(0) %}
+          {{ (100 * states('sensor.wpa_pv_strom_tag') | float(0) / s) | round(1) if s > 0.05 else none }}
+
+      - name: "WPA PV-Anteil Monat"
+        unique_id: wpa_pv_anteil_monat
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >
+          {% set s = states('sensor.wpa_strom_monat') | float(0) %}
+          {{ (100 * states('sensor.wpa_pv_strom_monat') | float(0) / s) | round(1) if s > 0.5 else none }}
+
+      - name: "WPA PV-Anteil Jahr"
+        unique_id: wpa_pv_anteil_jahr
+        unit_of_measurement: "%"
+        state_class: measurement
+        state: >
+          {% set s = states('sensor.wpa_strom_jahr') | float(0) %}
+          {{ (100 * states('sensor.wpa_pv_strom_jahr') | float(0) / s) | round(1) if s > 1 else none }}
+
+      - name: "WPA Laufzeit pro Start heute"
+        unique_id: wpa_laufzeit_pro_start
+        unit_of_measurement: min
+        state_class: measurement
+        state: >
+          {% set n = states('sensor.wpa_verdichterstarts_heute') | int(0) %}
+          {{ (states('sensor.wpa_verdichterlaufzeit_heute') | float(0) * 60 / n) | round(0) if n > 0 else none }}
+
+sensor:
+  # Riemann-Integration aus der Momentanleistung: feiner als die kWh-Zähler
+  # der Anlage (1 kWh Auflösung). max_sub_interval sorgt für Stützstellen
+  # auch bei konstanter Leistung.
+  - platform: integration
+    name: "WPA Strom"
+    unique_id: wpa_strom_kwh
+    source: sensor.brotje_neo_elektrische_leistung
+    unit_prefix: k
+    method: left
+    round: 3
+    max_sub_interval:
+      minutes: 5
+  - platform: integration
+    name: "WPA Strom Heizen"
+    unique_id: wpa_strom_heizen_kwh
+    source: sensor.wpa_leistung_elektrisch_heizen
+    unit_prefix: k
+    method: left
+    round: 3
+    max_sub_interval:
+      minutes: 5
+  - platform: integration
+    name: "WPA Strom Warmwasser"
+    unique_id: wpa_strom_ww_kwh
+    source: sensor.wpa_leistung_elektrisch_warmwasser
+    unit_prefix: k
+    method: left
+    round: 3
+    max_sub_interval:
+      minutes: 5
+  - platform: integration
+    name: "WPA Wärme"
+    unique_id: wpa_waerme_kwh
+    source: sensor.brotje_neo_heizleistung
+    method: left
+    round: 3
+    max_sub_interval:
+      minutes: 5
+  - platform: integration
+    name: "WPA Wärme Heizen"
+    unique_id: wpa_waerme_heizen_kwh
+    source: sensor.wpa_leistung_thermisch_heizen
+    method: left
+    round: 3
+    max_sub_interval:
+      minutes: 5
+  - platform: integration
+    name: "WPA Wärme Warmwasser"
+    unique_id: wpa_waerme_ww_kwh
+    source: sensor.wpa_leistung_thermisch_warmwasser
+    method: left
+    round: 3
+    max_sub_interval:
+      minutes: 5
+  - platform: integration
+    name: "WPA PV-Strom"
+    unique_id: wpa_pv_strom_kwh
+    source: sensor.wpa_pv_leistung_in_wp
+    unit_prefix: k
+    method: left
+    round: 3
+    max_sub_interval:
+      minutes: 5
+
+  # Takten / Abtauen / EVU
+  - platform: history_stats
+    name: "WPA Verdichterstarts heute"
+    unique_id: wpa_starts_heute
+    entity_id: binary_sensor.brotje_neo_verdichter
+    state: "on"
+    type: count
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "WPA Verdichterlaufzeit heute"
+    unique_id: wpa_laufzeit_heute
+    entity_id: binary_sensor.brotje_neo_verdichter
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "WPA Abtauungen heute"
+    unique_id: wpa_abtauungen_heute
+    entity_id: binary_sensor.brotje_neo_abtauen
+    state: "on"
+    type: count
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "WPA EVU-Sperrzeit heute"
+    unique_id: wpa_evu_sperre_heute
+    entity_id: binary_sensor.brotje_neo_evu_freigabe
+    state: "off"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+
+utility_meter:
+  wpa_strom_tag: {source: sensor.wpa_strom, cycle: daily}
+  wpa_strom_monat: {source: sensor.wpa_strom, cycle: monthly}
+  wpa_strom_jahr: {source: sensor.wpa_strom, cycle: yearly}
+  wpa_waerme_tag: {source: sensor.wpa_warme, cycle: daily}
+  wpa_waerme_monat: {source: sensor.wpa_warme, cycle: monthly}
+  wpa_waerme_jahr: {source: sensor.wpa_warme, cycle: yearly}
+  wpa_strom_heizen_monat: {source: sensor.wpa_strom_heizen, cycle: monthly}
+  wpa_strom_ww_monat: {source: sensor.wpa_strom_warmwasser, cycle: monthly}
+  wpa_waerme_heizen_monat: {source: sensor.wpa_warme_heizen, cycle: monthly}
+  wpa_waerme_ww_monat: {source: sensor.wpa_warme_warmwasser, cycle: monthly}
+  wpa_pv_strom_tag: {source: sensor.wpa_pv_strom, cycle: daily}
+  wpa_pv_strom_monat: {source: sensor.wpa_pv_strom, cycle: monthly}
+  wpa_pv_strom_jahr: {source: sensor.wpa_pv_strom, cycle: yearly}
+
+# ---------------------------------------------------------------------------
+# PV-Überschuss-Vorgabe an das NEO-RKM (Register 125)
+# Voraussetzung im NEO-RKM-Webinterface: Photovoltaik -> PV-Auswahl "Modbus TCP",
+# Leistungsschwelle / Einschaltverzögerung / Mindestlaufzeit dort einstellen.
+# Das RKM entscheidet selbst über Start und Modulation. HA liefert nur den Wert.
+# Schutz: Freigabe-Schalter (Standard aus), Sicherheitsabzug, 0 bei
+# ausgefallenen Messwerten, Watchdog der Integration (Option, Standard 120 s).
+# ---------------------------------------------------------------------------
+input_boolean:
+  wpa_pv_vorgabe_freigabe:
+    name: "WP PV-Vorgabe freigegeben"
+    icon: mdi:solar-power
+
+input_number:
+  wpa_pv_reserve:
+    name: "WP PV-Vorgabe Sicherheitsabzug"
+    min: 0
+    max: 2000
+    step: 50
+    unit_of_measurement: W
+    initial: 200
+    mode: box
+
+automation:
+  - id: wpa_pv_vorgabe_zyklisch
+    alias: "WP: PV-Überschuss an NEO-RKM melden"
+    mode: single
+    triggers:
+      - trigger: time_pattern
+        seconds: "/30"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.wpa_pv_vorgabe_freigabe
+        state: "on"
+    actions:
+      - variables:
+          ok: "{{ has_value('sensor.wpa_pv_uberschuss_fur_wp') }}"
+          maxw: "{{ state_attr('number.brotje_neo_pv_leistung', 'max') | float(0) }}"
+          wert: >
+            {% set u = states('sensor.wpa_pv_uberschuss_fur_wp') | float(0)
+                       - states('input_number.wpa_pv_reserve') | float(0) %}
+            {{ [[((u / 50) | round(0, 'floor') * 50), maxw] | min, 0] | max | int }}
+      - action: number.set_value
+        target:
+          entity_id: number.brotje_neo_pv_leistung
+        data:
+          value: "{{ wert if ok else 0 }}"
+
+  - id: wpa_pv_vorgabe_aus
+    alias: "WP: PV-Vorgabe zurücksetzen bei Sperre"
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.wpa_pv_vorgabe_freigabe
+        to: "off"
+    actions:
+      - action: number.set_value
+        target:
+          entity_id: number.brotje_neo_pv_leistung
+        data:
+          value: 0

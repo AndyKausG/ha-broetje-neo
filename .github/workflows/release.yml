@@ -1,0 +1,23 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set version in manifest
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          jq --arg v "$v" '.version=$v' custom_components/broetje_neo/manifest.json > m.json
+          mv m.json custom_components/broetje_neo/manifest.json
+      - run: cd custom_components/broetje_neo && zip -r ../../broetje_neo.zip .
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: broetje_neo.zip

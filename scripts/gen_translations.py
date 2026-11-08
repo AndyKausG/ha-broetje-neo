@@ -1,0 +1,239 @@
+"""Generate strings.json and translations/{en,de}.json.
+
+Entity names are kept in one table here to keep both languages in sync.
+Run: python scripts/gen_translations.py
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent / "custom_components" / "broetje_neo"
+
+MODES = {
+    "off": ("Off", "Aus"),
+    "auto": ("Auto", "Automatik"),
+    "cooling": ("Cooling", "Kühlen"),
+    "summer": ("Summer", "Sommer"),
+    "continuous": ("Continuous", "Dauerbetrieb"),
+    "setback": ("Setback", "Absenken"),
+    "holiday": ("Holiday", "Urlaub"),
+    "party": ("Party", "Party"),
+    "bake_out": ("Bake-out", "Ausheizen"),
+    "evu_lock": ("Utility lock", "EVU-Sperre"),
+    "main_switch_off": ("Main switch off", "Hauptschalter aus"),
+}
+WRITABLE = [k for k in MODES if k not in ("bake_out", "evu_lock", "main_switch_off")]
+DEMANDS = {
+    "none": ("None", "Keine"),
+    "cooling": ("Cooling", "Kühlen"),
+    "heating": ("Heating", "Heizen"),
+    "hot_water": ("Hot water", "Warmwasser"),
+    "external": ("External", "Externe Anforderung"),
+}
+
+ENTITIES: dict[str, dict[str, tuple[str, str]]] = {
+    "sensor": {
+        "outdoor_temperature": ("Outdoor temperature", "Außentemperatur"),
+        "outdoor_temperature_delayed": ("Outdoor temperature delayed", "Außentemperatur verzögert"),
+        "dhw_temperature": ("DHW temperature", "Warmwassertemperatur"),
+        "flow_temperature": ("Flow temperature", "Vorlauftemperatur"),
+        "return_temperature": ("Return temperature", "Rücklauftemperatur"),
+        "buffer_temperature": ("Buffer temperature", "Puffertemperatur"),
+        "source_inlet_temperature": ("Source inlet temperature", "Quelle Eintritt"),
+        "source_outlet_temperature": ("Source outlet temperature", "Quelle Austritt"),
+        "suction_gas_temperature": ("Suction gas temperature", "Sauggastemperatur"),
+        "evaporation_temperature": ("Evaporation temperature", "Verdampfungstemperatur"),
+        "condensation_temperature": ("Condensation temperature", "Kondensationstemperatur"),
+        "hot_gas_temperature": ("Hot gas temperature", "Heißgastemperatur"),
+        "fresh_water_temperature": ("Fresh water temperature", "Frischwassertemperatur"),
+        "return_setpoint_actual": ("Return setpoint", "Rücklaufsolltemperatur"),
+        "mkr1_flow_setpoint_actual": ("MKR1 flow setpoint", "MKR1 Vorlaufsoll"),
+        "mkr2_flow_setpoint_actual": ("MKR2 flow setpoint", "MKR2 Vorlaufsoll"),
+        "low_pressure": ("Low pressure", "Niederdruck"),
+        "high_pressure": ("High pressure", "Hochdruck"),
+        "flow_rate": ("Flow rate", "Durchfluss"),
+        "compressor_speed": ("Compressor speed", "Verdichterdrehzahl"),
+        "expansion_valve": ("Expansion valve", "Expansionsventil"),
+        "cop": ("COP", "COP"),
+        "cop_calculated": ("COP calculated", "COP berechnet"),
+        "electrical_power": ("Electrical power", "Elektrische Leistung"),
+        "thermal_power": ("Thermal power", "Heizleistung"),
+        "thermal_energy_heating": ("Thermal energy heating", "Wärmemenge Heizen"),
+        "electrical_energy_heating": ("Electrical energy heating", "Strom Heizen"),
+        "thermal_energy_dhw": ("Thermal energy DHW", "Wärmemenge Warmwasser"),
+        "electrical_energy_dhw": ("Electrical energy DHW", "Strom Warmwasser"),
+        "electrical_energy_total": ("Electrical energy total", "Strom gesamt"),
+        "thermal_energy_total": ("Thermal energy total", "Wärmemenge gesamt"),
+        "operating_hours_dhw": ("Operating hours DHW", "Betriebsstunden Warmwasser"),
+        "operating_hours_heating": ("Operating hours heating", "Betriebsstunden Heizen"),
+        "demand": ("Demand", "Anforderung"),
+        "operating_mode_status": ("Operating mode status", "Betriebsart Status"),
+        "flow_return_spread": ("Flow/return spread", "Spreizung VL/RL"),
+        "superheat": ("Superheat", "Überhitzung"),
+        "temperature_lift": ("Temperature lift", "Temperaturhub"),
+        "condenser_approach": ("Condenser approach", "Kondensator-Grädigkeit"),
+        "source_spread": ("Source spread", "Spreizung Quelle"),
+        "spf_total": ("SPF total", "Arbeitszahl gesamt"),
+        "spf_heating": ("SPF heating", "Arbeitszahl Heizen"),
+        "spf_dhw": ("SPF DHW", "Arbeitszahl Warmwasser"),
+    },
+    "binary_sensor": {
+        "heating_pump": ("Heating circuit pump", "Heizkreispumpe"),
+        "buffer_pump": ("Buffer charging pump", "Pufferladepumpe"),
+        "compressor": ("Compressor", "Verdichter"),
+        "source_fan": ("Source fan", "Ventilator"),
+        "fault": ("Fault", "Störung"),
+        "defrost": ("Defrost", "Abtauen"),
+        "evu_release": ("Utility release", "EVU-Freigabe"),
+        "dhw_priority": ("DHW priority", "Warmwasservorrang"),
+        "passive_cooling": ("Passive cooling", "Kühlen passiv"),
+        "demand_heating": ("Heating", "Heizen"),
+        "demand_dhw": ("Hot water", "Warmwasser"),
+        "demand_cooling": ("Cooling", "Kühlen"),
+    },
+    "select": {
+        "operating_mode": ("Operating mode", "Betriebsart"),
+        "mkr1_operating_mode": ("MKR1 operating mode", "MKR1 Betriebsart"),
+        "mkr2_operating_mode": ("MKR2 operating mode", "MKR2 Betriebsart"),
+    },
+    "number": {
+        "room_setpoint": ("Room setpoint", "Raumsolltemperatur"),
+        "dhw_normal_setpoint": ("DHW normal temperature", "WW Normaltemperatur"),
+        "dhw_min_setpoint": ("DHW minimum temperature", "WW Minimaltemperatur"),
+        "cooling_return_min": ("Cooling return min", "Kühlen RLT min"),
+        "return_setpoint": ("Return setpoint override", "Rücklaufsoll Vorgabe"),
+        "mkr1_room_setpoint": ("MKR1 room setpoint", "MKR1 Raumsoll"),
+        "mkr1_flow_setpoint": ("MKR1 flow setpoint override", "MKR1 Vorlaufsoll Vorgabe"),
+        "mkr1_cooling_return_min": ("MKR1 cooling return min", "MKR1 Kühlen RLT min"),
+        "mkr2_room_setpoint": ("MKR2 room setpoint", "MKR2 Raumsoll"),
+        "mkr2_flow_setpoint": ("MKR2 flow setpoint override", "MKR2 Vorlaufsoll Vorgabe"),
+        "mkr2_cooling_return_min": ("MKR2 cooling return min", "MKR2 Kühlen RLT min"),
+        "outdoor_override_value": ("Outdoor temperature override", "Außentemperatur Vorgabe"),
+        "buffer_override_value": ("Buffer temperature override", "Puffertemperatur Vorgabe"),
+        "dhw_override_value": ("DHW temperature override", "WW-Temperatur Vorgabe"),
+        "pv_power": ("PV power", "PV-Leistung"),
+        "compressor_speed_setpoint": ("Compressor speed setpoint", "Verdichterdrehzahl Vorgabe"),
+    },
+    "switch": {
+        "return_setpoint_active": ("Return setpoint override active", "Rücklaufsoll Vorgabe aktiv"),
+        "mkr1_flow_setpoint_active": (
+            "MKR1 flow setpoint override active",
+            "MKR1 Vorlaufsoll Vorgabe aktiv",
+        ),
+        "mkr2_flow_setpoint_active": (
+            "MKR2 flow setpoint override active",
+            "MKR2 Vorlaufsoll Vorgabe aktiv",
+        ),
+        "external_speed_request": (
+            "External compressor speed request",
+            "Anforderung ext. Drehzahlvorgabe",
+        ),
+        "external_request": ("External request", "Externe Anforderung"),
+        "outdoor_override_active": (
+            "Outdoor temperature override active",
+            "Außentemperatur Vorgabe aktiv",
+        ),
+        "buffer_override_active": (
+            "Buffer temperature override active",
+            "Puffertemperatur Vorgabe aktiv",
+        ),
+        "dhw_override_active": ("DHW temperature override active", "WW-Temperatur Vorgabe aktiv"),
+        "stage2_value": ("2nd stage", "2. Stufe"),
+        "stage2_active": ("2nd stage override active", "2. Stufe Vorgabe aktiv"),
+        "evu_release_value": ("Utility release value", "EVU-Freigabe Wert"),
+        "evu_release_active": ("Utility release override active", "EVU-Freigabe Vorgabe aktiv"),
+    },
+    "button": {
+        "reset_fault": ("Reset fault", "Entstören"),
+    },
+}
+
+TEXT = {
+    "en": {
+        "user_title": "Brötje NEO-RKM",
+        "user_desc": "Modbus TCP must be enabled in the NEO-RKM web interface (Service → Grundbedienung → Modbus).",
+        "name": "Name",
+        "host": "Host",
+        "port": "Port",
+        "unit_id": "Unit ID",
+        "model": "Model",
+        "cannot_connect": "Failed to connect or read register 10.",
+        "already_configured": "Device is already configured",
+        "opt_title": "Options",
+        "scan_interval": "Polling interval (s)",
+        "pv_watchdog": "PV watchdog (s, 0 = off)",
+        "pv_watchdog_desc": "Register 125 (PV power) is reset to 0 if not refreshed within this time, on HA start and on stop.",
+        "pv_max_power": "Maximum PV power target (W)",
+    },
+    "de": {
+        "user_title": "Brötje NEO-RKM",
+        "user_desc": "Modbus TCP muss im Webinterface des NEO-RKM aktiviert sein (Service → Grundbedienung → Modbus).",
+        "name": "Name",
+        "host": "Host",
+        "port": "Port",
+        "unit_id": "Unit-ID",
+        "model": "Modell",
+        "cannot_connect": "Verbindung fehlgeschlagen oder Register 10 nicht lesbar.",
+        "already_configured": "Gerät ist bereits eingerichtet",
+        "opt_title": "Optionen",
+        "scan_interval": "Abfrageintervall (s)",
+        "pv_watchdog": "PV-Watchdog (s, 0 = aus)",
+        "pv_watchdog_desc": "Register 125 (PV-Leistung) wird auf 0 gesetzt, wenn es nicht innerhalb dieser Zeit erneuert wird, sowie beim Start und Stopp von HA.",
+        "pv_max_power": "Maximale PV-Leistungsvorgabe (W)",
+    },
+}
+
+
+def build(lang: str) -> dict:
+    idx = 0 if lang == "en" else 1
+    t = TEXT[lang]
+    entity: dict[str, dict] = {}
+    for platform, items in ENTITIES.items():
+        entity[platform] = {}
+        for key, names in items.items():
+            entry: dict = {"name": names[idx]}
+            if platform == "select":
+                entry["state"] = {k: MODES[k][idx] for k in WRITABLE}
+            if key == "operating_mode_status":
+                entry["state"] = {k: v[idx] for k, v in MODES.items()}
+            if key == "demand":
+                entry["state"] = {k: v[idx] for k, v in DEMANDS.items()}
+            entity[platform][key] = entry
+    return {
+        "config": {
+            "step": {
+                "user": {
+                    "title": t["user_title"],
+                    "description": t["user_desc"],
+                    "data": {k: t[k] for k in ("name", "host", "port", "unit_id", "model")},
+                }
+            },
+            "error": {"cannot_connect": t["cannot_connect"]},
+            "abort": {"already_configured": t["already_configured"]},
+        },
+        "options": {
+            "step": {
+                "init": {
+                    "title": t["opt_title"],
+                    "description": t["pv_watchdog_desc"],
+                    "data": {k: t[k] for k in ("scan_interval", "pv_watchdog", "pv_max_power")},
+                }
+            }
+        },
+        "entity": entity,
+    }
+
+
+def main() -> None:
+    (ROOT / "translations").mkdir(exist_ok=True)
+    for lang in ("en", "de"):
+        data = json.dumps(build(lang), ensure_ascii=False, indent=2) + "\n"
+        (ROOT / "translations" / f"{lang}.json").write_text(data, encoding="utf-8")
+        if lang == "en":
+            (ROOT / "strings.json").write_text(data, encoding="utf-8")
+
+
+if __name__ == "__main__":
+    main()

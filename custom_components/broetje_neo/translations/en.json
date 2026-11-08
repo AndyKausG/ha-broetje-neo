@@ -1,0 +1,361 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Brötje NEO-RKM",
+        "description": "Modbus TCP must be enabled in the NEO-RKM web interface (Service → Grundbedienung → Modbus).",
+        "data": {
+          "name": "Name",
+          "host": "Host",
+          "port": "Port",
+          "unit_id": "Unit ID",
+          "model": "Model"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect or read register 10."
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options",
+        "description": "Register 125 (PV power) is reset to 0 if not refreshed within this time, on HA start and on stop.",
+        "data": {
+          "scan_interval": "Polling interval (s)",
+          "pv_watchdog": "PV watchdog (s, 0 = off)",
+          "pv_max_power": "Maximum PV power target (W)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "outdoor_temperature": {
+        "name": "Outdoor temperature"
+      },
+      "outdoor_temperature_delayed": {
+        "name": "Outdoor temperature delayed"
+      },
+      "dhw_temperature": {
+        "name": "DHW temperature"
+      },
+      "flow_temperature": {
+        "name": "Flow temperature"
+      },
+      "return_temperature": {
+        "name": "Return temperature"
+      },
+      "buffer_temperature": {
+        "name": "Buffer temperature"
+      },
+      "source_inlet_temperature": {
+        "name": "Source inlet temperature"
+      },
+      "source_outlet_temperature": {
+        "name": "Source outlet temperature"
+      },
+      "suction_gas_temperature": {
+        "name": "Suction gas temperature"
+      },
+      "evaporation_temperature": {
+        "name": "Evaporation temperature"
+      },
+      "condensation_temperature": {
+        "name": "Condensation temperature"
+      },
+      "hot_gas_temperature": {
+        "name": "Hot gas temperature"
+      },
+      "fresh_water_temperature": {
+        "name": "Fresh water temperature"
+      },
+      "return_setpoint_actual": {
+        "name": "Return setpoint"
+      },
+      "mkr1_flow_setpoint_actual": {
+        "name": "MKR1 flow setpoint"
+      },
+      "mkr2_flow_setpoint_actual": {
+        "name": "MKR2 flow setpoint"
+      },
+      "low_pressure": {
+        "name": "Low pressure"
+      },
+      "high_pressure": {
+        "name": "High pressure"
+      },
+      "flow_rate": {
+        "name": "Flow rate"
+      },
+      "compressor_speed": {
+        "name": "Compressor speed"
+      },
+      "expansion_valve": {
+        "name": "Expansion valve"
+      },
+      "cop": {
+        "name": "COP"
+      },
+      "cop_calculated": {
+        "name": "COP calculated"
+      },
+      "electrical_power": {
+        "name": "Electrical power"
+      },
+      "thermal_power": {
+        "name": "Thermal power"
+      },
+      "thermal_energy_heating": {
+        "name": "Thermal energy heating"
+      },
+      "electrical_energy_heating": {
+        "name": "Electrical energy heating"
+      },
+      "thermal_energy_dhw": {
+        "name": "Thermal energy DHW"
+      },
+      "electrical_energy_dhw": {
+        "name": "Electrical energy DHW"
+      },
+      "electrical_energy_total": {
+        "name": "Electrical energy total"
+      },
+      "thermal_energy_total": {
+        "name": "Thermal energy total"
+      },
+      "operating_hours_dhw": {
+        "name": "Operating hours DHW"
+      },
+      "operating_hours_heating": {
+        "name": "Operating hours heating"
+      },
+      "demand": {
+        "name": "Demand",
+        "state": {
+          "none": "None",
+          "cooling": "Cooling",
+          "heating": "Heating",
+          "hot_water": "Hot water",
+          "external": "External"
+        }
+      },
+      "operating_mode_status": {
+        "name": "Operating mode status",
+        "state": {
+          "off": "Off",
+          "auto": "Auto",
+          "cooling": "Cooling",
+          "summer": "Summer",
+          "continuous": "Continuous",
+          "setback": "Setback",
+          "holiday": "Holiday",
+          "party": "Party",
+          "bake_out": "Bake-out",
+          "evu_lock": "Utility lock",
+          "main_switch_off": "Main switch off"
+        }
+      },
+      "flow_return_spread": {
+        "name": "Flow/return spread"
+      },
+      "superheat": {
+        "name": "Superheat"
+      },
+      "temperature_lift": {
+        "name": "Temperature lift"
+      },
+      "condenser_approach": {
+        "name": "Condenser approach"
+      },
+      "source_spread": {
+        "name": "Source spread"
+      },
+      "spf_total": {
+        "name": "SPF total"
+      },
+      "spf_heating": {
+        "name": "SPF heating"
+      },
+      "spf_dhw": {
+        "name": "SPF DHW"
+      }
+    },
+    "binary_sensor": {
+      "heating_pump": {
+        "name": "Heating circuit pump"
+      },
+      "buffer_pump": {
+        "name": "Buffer charging pump"
+      },
+      "compressor": {
+        "name": "Compressor"
+      },
+      "source_fan": {
+        "name": "Source fan"
+      },
+      "fault": {
+        "name": "Fault"
+      },
+      "defrost": {
+        "name": "Defrost"
+      },
+      "evu_release": {
+        "name": "Utility release"
+      },
+      "dhw_priority": {
+        "name": "DHW priority"
+      },
+      "passive_cooling": {
+        "name": "Passive cooling"
+      },
+      "demand_heating": {
+        "name": "Heating"
+      },
+      "demand_dhw": {
+        "name": "Hot water"
+      },
+      "demand_cooling": {
+        "name": "Cooling"
+      }
+    },
+    "select": {
+      "operating_mode": {
+        "name": "Operating mode",
+        "state": {
+          "off": "Off",
+          "auto": "Auto",
+          "cooling": "Cooling",
+          "summer": "Summer",
+          "continuous": "Continuous",
+          "setback": "Setback",
+          "holiday": "Holiday",
+          "party": "Party"
+        }
+      },
+      "mkr1_operating_mode": {
+        "name": "MKR1 operating mode",
+        "state": {
+          "off": "Off",
+          "auto": "Auto",
+          "cooling": "Cooling",
+          "summer": "Summer",
+          "continuous": "Continuous",
+          "setback": "Setback",
+          "holiday": "Holiday",
+          "party": "Party"
+        }
+      },
+      "mkr2_operating_mode": {
+        "name": "MKR2 operating mode",
+        "state": {
+          "off": "Off",
+          "auto": "Auto",
+          "cooling": "Cooling",
+          "summer": "Summer",
+          "continuous": "Continuous",
+          "setback": "Setback",
+          "holiday": "Holiday",
+          "party": "Party"
+        }
+      }
+    },
+    "number": {
+      "room_setpoint": {
+        "name": "Room setpoint"
+      },
+      "dhw_normal_setpoint": {
+        "name": "DHW normal temperature"
+      },
+      "dhw_min_setpoint": {
+        "name": "DHW minimum temperature"
+      },
+      "cooling_return_min": {
+        "name": "Cooling return min"
+      },
+      "return_setpoint": {
+        "name": "Return setpoint override"
+      },
+      "mkr1_room_setpoint": {
+        "name": "MKR1 room setpoint"
+      },
+      "mkr1_flow_setpoint": {
+        "name": "MKR1 flow setpoint override"
+      },
+      "mkr1_cooling_return_min": {
+        "name": "MKR1 cooling return min"
+      },
+      "mkr2_room_setpoint": {
+        "name": "MKR2 room setpoint"
+      },
+      "mkr2_flow_setpoint": {
+        "name": "MKR2 flow setpoint override"
+      },
+      "mkr2_cooling_return_min": {
+        "name": "MKR2 cooling return min"
+      },
+      "outdoor_override_value": {
+        "name": "Outdoor temperature override"
+      },
+      "buffer_override_value": {
+        "name": "Buffer temperature override"
+      },
+      "dhw_override_value": {
+        "name": "DHW temperature override"
+      },
+      "pv_power": {
+        "name": "PV power"
+      },
+      "compressor_speed_setpoint": {
+        "name": "Compressor speed setpoint"
+      }
+    },
+    "switch": {
+      "return_setpoint_active": {
+        "name": "Return setpoint override active"
+      },
+      "mkr1_flow_setpoint_active": {
+        "name": "MKR1 flow setpoint override active"
+      },
+      "mkr2_flow_setpoint_active": {
+        "name": "MKR2 flow setpoint override active"
+      },
+      "external_speed_request": {
+        "name": "External compressor speed request"
+      },
+      "external_request": {
+        "name": "External request"
+      },
+      "outdoor_override_active": {
+        "name": "Outdoor temperature override active"
+      },
+      "buffer_override_active": {
+        "name": "Buffer temperature override active"
+      },
+      "dhw_override_active": {
+        "name": "DHW temperature override active"
+      },
+      "stage2_value": {
+        "name": "2nd stage"
+      },
+      "stage2_active": {
+        "name": "2nd stage override active"
+      },
+      "evu_release_value": {
+        "name": "Utility release value"
+      },
+      "evu_release_active": {
+        "name": "Utility release override active"
+      }
+    },
+    "button": {
+      "reset_fault": {
+        "name": "Reset fault"
+      }
+    }
+  }
+}

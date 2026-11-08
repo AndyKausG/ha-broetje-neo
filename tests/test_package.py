@@ -1,0 +1,121 @@
+"""Check the analytics package against real entity IDs (German HA)."""
+
+from __future__ import annotations
+
+from pathlib import Path
+import re
+
+from homeassistant.core import HomeAssistant
+from homeassistant.setup import async_setup_component
+from homeassistant.util.yaml import parse_yaml
+import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+
+
+@pytest.fixture(autouse=True)
+def auto_enable_custom_integrations(recorder_mock, enable_custom_integrations):
+    """Recorder (for history_stats) must start before hass."""
+    return
+
+
+EXTRAS = Path(__file__).parent.parent / "extras"
+PACKAGE = EXTRAS / "packages" / "broetje_neo_analytics.yaml"
+CARD = EXTRAS / "lovelace" / "heat-pump-card.yaml"
+TOOL = EXTRAS / "tools" / "analyze_heatpump.py"
+
+
+async def _setup_de(hass: HomeAssistant, entry: MockConfigEntry) -> None:
+    hass.config.language = "de"
+    entry = MockConfigEntry(domain=entry.domain, data={**entry.data, "name": "Brötje NEO"})
+    entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+
+async def _settle(hass: HomeAssistant) -> None:
+    # chained template sensors need one loop iteration per level
+    for _ in range(4):
+        await hass.async_block_till_done()
+
+
+async def test_package_entity_ids_exist(hass: HomeAssistant, fake_client, config_entry) -> None:
+    await _setup_de(hass, config_entry)
+    text = PACKAGE.read_text(encoding="utf-8") + CARD.read_text(encoding="utf-8")
+    ids = set(re.findall(r"\b((?:sensor|binary_sensor|number)\.brotje_neo_\w+)", text))
+    assert ids
+    missing = [i for i in sorted(ids) if hass.states.get(i) is None]
+    assert not missing, missing
+
+
+async def test_analyze_profile_entity_ids_exist(
+    hass: HomeAssistant, fake_client, config_entry
+) -> None:
+    import importlib.util
+    import sys
+
+    spec = importlib.util.spec_from_file_location("analyze_heatpump", TOOL)
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["analyze_heatpump"] = mod
+    spec.loader.exec_module(mod)
+    await _setup_de(hass, config_entry)
+    ids = [v.format(p="brotje_neo") for v in mod.PROFILES["broetje_neo"].values()]
+    missing = [i for i in ids if hass.states.get(i) is None]
+    assert not missing, missing
+
+
+async def test_package_pv_surplus(hass: HomeAssistant, fake_client, config_entry) -> None:
+    await _setup_de(hass, config_entry)
+    hass.states.async_set("sensor.anpassen_pv_leistung", "5000")
+    hass.states.async_set("sensor.anpassen_netzbezug", "0")
+    hass.states.async_set("sensor.anpassen_einspeisung", "2500")
+    conf = parse_yaml(PACKAGE.read_text(encoding="utf-8"))
+    assert await async_setup_component(hass, "template", {"template": conf["template"]})
+    await hass.async_block_till_done()
+
+    # house w/o heat pump = 5000 + 0 - 2500 - 1800 = 700 -> surplus 4300
+    def val(eid: str) -> float:
+        return float(hass.states.get(eid).state)
+
+    assert val("sensor.wpa_pv_uberschuss_fur_wp") == 4300
+    assert val("sensor.wpa_pv_leistung_in_wp") == 1800
+    assert val("sensor.wpa_leistung_elektrisch_heizen") == 1800
+    assert val("sensor.wpa_leistung_elektrisch_warmwasser") == 0
+
+    # grid draw case: PV 1000, import 1500, house w/o WP = 700 -> surplus 300
+    hass.states.async_set("sensor.anpassen_pv_leistung", "1000")
+    hass.states.async_set("sensor.anpassen_netzbezug", "1500")
+    hass.states.async_set("sensor.anpassen_einspeisung", "0")
+    await _settle(hass)
+    assert val("sensor.wpa_pv_uberschuss_fur_wp") == 300
+    assert val("sensor.wpa_pv_leistung_in_wp") == 300
+
+    # sensor failure -> unavailable
+    hass.states.async_set("sensor.anpassen_pv_leistung", "unavailable")
+    await _settle(hass)
+    assert hass.states.get("sensor.wpa_pv_uberschuss_fur_wp").state == "unavailable"
+
+
+async def test_package_full_config(hass: HomeAssistant, fake_client, config_entry) -> None:
+    """Load all package domains to catch schema/runtime errors."""
+    hass.config.language = "de"
+    conf = parse_yaml(PACKAGE.read_text(encoding="utf-8"))
+    # sensor platforms first: once the sensor domain is loaded by the config
+    # entry, async_setup_component would ignore further YAML platforms
+    assert await async_setup_component(hass, "sensor", {"sensor": conf["sensor"]})
+    await _setup_de(hass, config_entry)
+    for domain in ("input_boolean", "input_number", "template", "utility_meter", "automation"):
+        assert await async_setup_component(hass, domain, {domain: conf[domain]}), domain
+    await _settle(hass)
+    for eid in (
+        "sensor.wpa_strom",
+        "sensor.wpa_warme",
+        "sensor.wpa_pv_strom",
+        "sensor.wpa_waerme_monat",
+        "sensor.wpa_verdichterstarts_heute",
+        "sensor.wpa_evu_sperrzeit_heute",
+        "automation.wp_pv_uberschuss_an_neo_rkm_melden",
+    ):
+        assert hass.states.get(eid) is not None, eid
+    # utility meter sources must exist
+    for meter in conf["utility_meter"].values():
+        assert hass.states.get(meter["source"]) is not None, meter["source"]

@@ -1,0 +1,34 @@
+# lovelace-heat-pump-card (ManfredTremmel) für broetje_neo
+# Annahme: Gerätename "Brötje NEO", HA-Sprache Deutsch -> Präfix brotje_neo_
+# Layout: Ansicht "Abschnitte", Abschnitt column_span 2-3, Karte grid_options.columns: full
+type: custom:heat-pump-card
+title: BLW NEO 18b
+heatingPumpType: A2W
+warning: binary_sensor.brotje_neo_storung
+hpRunning: binary_sensor.brotje_neo_ventilator
+compressorRunning: binary_sensor.brotje_neo_verdichter
+heatingPumpHeatingMode: binary_sensor.brotje_neo_heizen
+heatingPumpHotWaterMode: binary_sensor.brotje_neo_warmwasser
+heatingPumpCoolingMode: binary_sensor.brotje_neo_kuhlen
+outdoorTemperature: sensor.brotje_neo_aussentemperatur
+supplyTemperature: sensor.brotje_neo_vorlauftemperatur
+supplyTemperatureMain: sensor.brotje_neo_vorlauftemperatur
+refluxTemperatureMain: sensor.brotje_neo_rucklauftemperatur
+storageChargingPumpRunning: binary_sensor.brotje_neo_pufferladepumpe
+tankHP: true
+tankTempHPUp: sensor.brotje_neo_puffertemperatur
+tankWW: true
+tankTempWWUp: sensor.brotje_neo_warmwassertemperatur
+heatingCircuitType1: underfloor
+heatingCircuitPumpRunning: binary_sensor.brotje_neo_heizkreispumpe
+supplyTemperatureHeating: sensor.brotje_neo_vorlauftemperatur
+refluxTemperatureHeating: sensor.brotje_neo_rucklauftemperatur
+heatingCircuitType2: "off"
+heatingCircuitType3: "off"
+evaporatorPressure: sensor.brotje_neo_niederdruck
+evaporatorTemperature: sensor.brotje_neo_verdampfungstemperatur
+condenserPressure: sensor.brotje_neo_hochdruck
+condenserTemperature: sensor.brotje_neo_kondensationstemperatur
+expansionValveOpening: sensor.brotje_neo_expansionsventil
+compressorValue: sensor.brotje_neo_verdichterdrehzahl
+thermalSolarAvailable: false

@@ -1,0 +1,14 @@
+{
+  "domain": "broetje_neo",
+  "name": "Brötje NEO (NEO-RKM)",
+  "codeowners": ["@AndyKausG"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/AndyKausG/ha-broetje-neo",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/AndyKausG/ha-broetje-neo/issues",
+  "loggers": ["pymodbus"],
+  "requirements": ["pymodbus>=3.11.0"],
+  "version": "0.1.0"
+}
