@@ -47,7 +47,9 @@ async def test_options_flow(hass: HomeAssistant, fake_client, config_entry) -> N
         result["flow_id"],
         {
             "heating_system": "radiator",
+            "heating_circuit": "mkr2",
             "room_sensors": ["sensor.wohnzimmer"],
+            "room_grouping": "sensor",
             "expected_spf": 3.8,
             CONF_ALLOW_WRITE: True,
             CONF_ALLOW_PV: False,
@@ -62,4 +64,6 @@ async def test_options_flow(hass: HomeAssistant, fake_client, config_entry) -> N
     assert config_entry.options[CONF_ALLOW_PV] is False
     assert config_entry.options["heating_system"] == "radiator"
     assert config_entry.options["room_sensors"] == ["sensor.wohnzimmer"]
+    assert config_entry.options["heating_circuit"] == "mkr2"
+    assert config_entry.options["room_grouping"] == "sensor"
     assert config_entry.options["expected_spf"] == 3.8

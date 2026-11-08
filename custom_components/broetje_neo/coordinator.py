@@ -12,6 +12,12 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import (
+    area_registry as ar,
+    device_registry as dr,
+    entity_registry as er,
+    floor_registry as fr,
+)
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from pymodbus.client import AsyncModbusTcpClient
@@ -24,20 +30,24 @@ from .const import (
     CONF_ALLOW_WRITE,
     CONF_EXPECTED_SPF,
     CONF_GRID_SIGNAL,
+    CONF_HEATING_CIRCUIT,
     CONF_HEATING_SYSTEM,
     CONF_PRICE_LOCK_MAX,
     CONF_PRICE_LOCK_SWITCH,
     CONF_PV_MAX_POWER,
     CONF_PV_WATCHDOG,
+    CONF_ROOM_GROUPING,
     CONF_ROOM_SENSORS,
     CONF_SCAN_INTERVAL,
     CONF_UNIT_ID,
     DEFAULT_ALLOW_PRICE_LOCK,
     DEFAULT_ALLOW_PV,
     DEFAULT_ALLOW_WRITE,
+    DEFAULT_HEATING_CIRCUIT,
     DEFAULT_HEATING_SYSTEM,
     DEFAULT_PV_MAX_POWER,
     DEFAULT_PV_WATCHDOG,
+    DEFAULT_ROOM_GROUPING,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_UNIT_ID,
     DOMAIN,
@@ -129,7 +139,11 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         self._store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.advisor")
         self.figures: dict[str, float | None] = {}
         self.hints: list[advisor.Hint] = []
+        self.circuit_setting: str = opts.get(CONF_HEATING_CIRCUIT, DEFAULT_HEATING_CIRCUIT)
+        self.room_grouping: str = opts.get(CONF_ROOM_GROUPING, DEFAULT_ROOM_GROUPING)
+        self._room_info: dict[str, dict[str, Any]] = {}
         self.circuit = "hkr"
+        self.coldest_room: str | None = None
         self.rooms: list[dict[str, Any]] = []
         self.advice_status: str = "collecting"
         self.data_days: float = 0.0
@@ -192,14 +206,46 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         """Persist collected operating data now."""
         await self._store.async_save(self.tracker.to_dict())
 
+    def _sensor_floor(self, eid: str) -> Any:
+        """Floor entry of a sensor (via its area or its device's area), or None."""
+        ent = er.async_get(self.hass).async_get(eid)
+        if ent is None:
+            return None
+        area_id = ent.area_id
+        if area_id is None and ent.device_id:
+            dev = dr.async_get(self.hass).async_get(ent.device_id)
+            area_id = dev.area_id if dev is not None else None
+        if area_id is None:
+            return None
+        area = ar.async_get(self.hass).async_get_area(area_id)
+        if area is None or not area.floor_id:
+            return None
+        return fr.async_get(self.hass).async_get_floor(area.floor_id)
+
     def _room_temperatures(self) -> dict[str, float]:
-        """Current value of each configured room sensor."""
-        out: dict[str, float] = {}
+        """Current room temperatures, one value per floor or per sensor.
+
+        Also fills ``self._room_info`` (display name, floor level, member sensors).
+        """
+        values: dict[str, list[float]] = {}
+        info: dict[str, dict[str, Any]] = {}
         for eid in self.room_sensors:
             st = self.hass.states.get(eid)
-            if st is not None and (v := advisor.safe_float(st.state)) is not None:
-                out[eid] = v
-        return out
+            if st is None or (v := advisor.safe_float(st.state)) is None:
+                continue
+            floor = self._sensor_floor(eid) if self.room_grouping == "floor" else None
+            if floor is not None:
+                key = f"floor:{floor.floor_id}"
+                entry = info.setdefault(
+                    key, {"name": floor.name, "level": floor.level, "sensors": []}
+                )
+            else:
+                key = eid
+                entry = info.setdefault(key, {"name": st.name, "level": None, "sensors": []})
+            entry["sensors"].append(st.name)
+            values.setdefault(key, []).append(v)
+        self._room_info = info
+        return {k: round(sum(v) / len(v), 2) for k, v in values.items()}
 
     def _room_name(self, eid: str) -> str:
         st = self.hass.states.get(eid)
@@ -217,11 +263,26 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             return None if raw is None else raw != 0
 
         suction, evap = val(r.T_SUCTION_GAS), val(r.T_EVAPORATION)
-        mkr_flow = val(r.T_MKR1_FLOW_SETPOINT)
-        mkr_mode = raw_value(r.MKR1_MODE, hold)
-        mkr1 = mkr_flow is not None and mkr_flow > 0 and mkr_mode is not None and mkr_mode != 0
-        self.circuit = "mkr1" if mkr1 else "hkr"
-        room_set = val(r.MKR1_ROOM_SETPOINT) if mkr1 else val(r.ROOM_SETPOINT)
+        mkr1_flow, mkr2_flow = val(r.T_MKR1_FLOW_SETPOINT), val(r.T_MKR2_FLOW_SETPOINT)
+
+        def active(flow: float | None, mode_reg: Register) -> bool:
+            mode = raw_value(mode_reg, hold)
+            return flow is not None and flow > 0 and mode is not None and mode != 0
+
+        if self.circuit_setting in ("hkr", "mkr1", "mkr2"):
+            self.circuit = self.circuit_setting
+        elif active(mkr1_flow, r.MKR1_MODE):
+            self.circuit = "mkr1"
+        elif active(mkr2_flow, r.MKR2_MODE):
+            self.circuit = "mkr2"
+        else:
+            self.circuit = "hkr"
+        mkr_flow = {"mkr1": mkr1_flow, "mkr2": mkr2_flow}.get(self.circuit, mkr1_flow)
+        room_set_reg = {
+            "mkr1": r.MKR1_ROOM_SETPOINT,
+            "mkr2": r.MKR2_ROOM_SETPOINT,
+        }.get(self.circuit, r.ROOM_SETPOINT)
+        room_set = val(room_set_reg)
         rooms = self._room_temperatures()
         now = time.time()
         self.tracker.feed(
@@ -260,10 +321,22 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             fault=bool(flag(r.FAULT)),
             has_room_sensor=bool(self.room_sensors),
         )
-        self.rooms = [
-            {**room, "name": self._room_name(room["entity_id"])}
-            for room in self.tracker.room_detail(now)
-        ]
+        rooms_list = []
+        for room in self.tracker.room_detail(now):
+            key = room["entity_id"]
+            meta = self._room_info.get(key) or {
+                "name": self._room_name(key),
+                "level": None,
+                "sensors": [],
+            }
+            rooms_list.append({**room, **meta})
+        if rooms_list and all(x["level"] is not None for x in rooms_list):
+            rooms_list.sort(key=lambda x: x["level"], reverse=True)
+        else:
+            rooms_list.sort(key=lambda x: x["avg_7d"])
+        self.rooms = rooms_list
+        with_dev = [x for x in rooms_list if x["dev_7d"] is not None]
+        self.coldest_room = min(with_dev, key=lambda x: x["dev_7d"])["name"] if with_dev else None
         hints = advisor.advise(self.figures, ctx, self.data_days, self.rooms)
         if self.data_days < advisor.MIN_DAYS:
             # only immediate findings until enough data is collected

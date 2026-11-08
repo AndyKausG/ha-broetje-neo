@@ -24,31 +24,37 @@ from .const import (
     CONF_ALLOW_WRITE,
     CONF_EXPECTED_SPF,
     CONF_GRID_SIGNAL,
+    CONF_HEATING_CIRCUIT,
     CONF_HEATING_SYSTEM,
     CONF_MODEL,
     CONF_PRICE_LOCK_MAX,
     CONF_PRICE_LOCK_SWITCH,
     CONF_PV_MAX_POWER,
     CONF_PV_WATCHDOG,
+    CONF_ROOM_GROUPING,
     CONF_ROOM_SENSORS,
     CONF_SCAN_INTERVAL,
     CONF_UNIT_ID,
     DEFAULT_ALLOW_PRICE_LOCK,
     DEFAULT_ALLOW_PV,
     DEFAULT_ALLOW_WRITE,
+    DEFAULT_HEATING_CIRCUIT,
     DEFAULT_HEATING_SYSTEM,
     DEFAULT_MODEL,
     DEFAULT_NAME,
     DEFAULT_PORT,
     DEFAULT_PV_MAX_POWER,
     DEFAULT_PV_WATCHDOG,
+    DEFAULT_ROOM_GROUPING,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_UNIT_ID,
     DOMAIN,
+    HEATING_CIRCUITS,
     HEATING_SYSTEMS,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
     MODBUS_TIMEOUT,
+    ROOM_GROUPINGS,
 )
 from .registers import T_OUTDOOR
 from .safety import PRICE_LOCK_MAX_MINUTES_DEFAULT, PRICE_LOCK_MAX_MINUTES_LIMIT
@@ -150,12 +156,32 @@ class BroetjeNeoOptionsFlow(OptionsFlow):
                         mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
+                vol.Required(
+                    CONF_HEATING_CIRCUIT,
+                    default=opts.get(CONF_HEATING_CIRCUIT, DEFAULT_HEATING_CIRCUIT),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=HEATING_CIRCUITS,
+                        translation_key="heating_circuit_option",
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
                 vol.Optional(
                     CONF_ROOM_SENSORS,
                     default=opts.get(CONF_ROOM_SENSORS, []),
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(
                         domain="sensor", device_class="temperature", multiple=True
+                    )
+                ),
+                vol.Required(
+                    CONF_ROOM_GROUPING,
+                    default=opts.get(CONF_ROOM_GROUPING, DEFAULT_ROOM_GROUPING),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=ROOM_GROUPINGS,
+                        translation_key="room_grouping",
+                        mode=selector.SelectSelectorMode.DROPDOWN,
                     )
                 ),
                 vol.Required(

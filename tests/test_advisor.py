@@ -328,6 +328,37 @@ def test_buffer_overheat() -> None:
     assert _hint(hints(4.0, "hkr"), "buffer_overheat") is None
 
 
+def test_mkr2_texts() -> None:
+    tr = a.Tracker()
+    now = _feed_days(
+        tr, 5, flow_fn=lambda t: 30 - 0.5 * t, room=22.5, mkr_fn=lambda t: 32 - 0.5 * t
+    )
+    ctx = a.Context(room_setpoint=21.0, has_room_sensor=True, circuit="mkr2")
+    h = _hint(a.advise(tr.figures(now), ctx, 5), "curve_lower")
+    assert h is not None
+    assert "Mischer 2" in h.suggestion
+    assert "Heizkurve M2" in h.suggestion
+    assert "Grundbedienung M2" in h.suggestion
+    assert "MKR2 Raumsoll" in h.suggestion
+    assert "Mischer 1" not in h.suggestion
+    assert "Vorlauf-Soll Mischer 2" in h.finding
+
+
+def test_buffer_overheat_mkr2() -> None:
+    tr = a.Tracker()
+    now = _feed_days(
+        tr,
+        5,
+        flow_fn=lambda t: 30 - 0.5 * t,
+        rl_fn=lambda t: 36 - 0.5 * t,
+        mkr_fn=lambda t: 32 - 0.5 * t,
+    )
+    ctx = a.Context(room_setpoint=21.0, has_room_sensor=True, circuit="mkr2")
+    h = _hint(a.advise(tr.figures(now), ctx, 5), "buffer_overheat")
+    assert h is not None
+    assert "Mischer 2" in h.finding
+
+
 def test_old_stored_data_without_mkr_fields() -> None:
     tr = a.Tracker()
     now = _feed_days(tr, 2, flow_fn=lambda t: 30 - 0.5 * t)

@@ -179,6 +179,7 @@ async def test_efficiency_card_renders(hass: HomeAssistant, fake_client, config_
     assert "Sammle Daten" in out
     assert "Störung aktiv" in out
     assert "Vorschlag:" in out
+    assert "Räume / Stockwerke (7 Tage)" in out
     assert "- Dachgeschoss: 20.5 °C" in out
     assert out.index("Dachgeschoss") < out.index("Erdgeschoss")
     # no setext headings: a separator must never directly follow a text line

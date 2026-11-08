@@ -36,6 +36,16 @@ SYSTEMS = {
     "radiator": ("Radiators", "Heizkörper"),
     "mixed": ("Mixed", "Gemischt"),
 }
+CIRCUITS = {
+    "auto": ("Automatic", "Automatisch"),
+    "hkr": ("Direct heating circuit (HKR)", "Heizkreis direkt (HKR)"),
+    "mkr1": ("Mixing circuit 1", "Mischerkreis 1"),
+    "mkr2": ("Mixing circuit 2", "Mischerkreis 2"),
+}
+GROUPINGS = {
+    "floor": ("By floor", "Nach Stockwerk"),
+    "sensor": ("Each sensor", "Jeder Sensor einzeln"),
+}
 DEMANDS = {
     "none": ("None", "Keine"),
     "cooling": ("Cooling", "Kühlen"),
@@ -179,6 +189,10 @@ TEXT = {
         "already_configured": "Device is already configured",
         "opt_title": "Options",
         "heating_system": "Heating system",
+        "heating_circuit": "Heating circuit for the efficiency check",
+        "heating_circuit_desc": "Auto detects a mixing circuit. Choose manually if the detection is wrong.",
+        "room_grouping": "Group room sensors",
+        "room_grouping_desc": "By floor uses the floors of the areas in Home Assistant (average per floor).",
         "room_sensors": "Room temperature sensors (for the efficiency check)",
         "expected_spf": "Planned seasonal performance factor (0 = unknown)",
         "allow_write": "Allow writing settings",
@@ -209,6 +223,10 @@ TEXT = {
         "already_configured": "Gerät ist bereits eingerichtet",
         "opt_title": "Optionen",
         "heating_system": "Heizsystem",
+        "heating_circuit": "Heizkreis für den Effizienz-Check",
+        "heating_circuit_desc": "Automatisch erkennt einen Mischerkreis. Manuell wählen, wenn die Erkennung nicht passt.",
+        "room_grouping": "Raumsensoren zusammenfassen",
+        "room_grouping_desc": "Nach Stockwerk nutzt die Stockwerke der Bereiche in Home Assistant (Mittelwert pro Stockwerk).",
         "room_sensors": "Raumtemperatur-Sensoren (für den Effizienz-Check)",
         "expected_spf": "Geplante Jahresarbeitszahl (0 = unbekannt)",
         "allow_write": "Einstellungen schreiben erlauben",
@@ -268,7 +286,9 @@ def build(lang: str) -> dict:
                         k: t[k]
                         for k in (
                             "heating_system",
+                            "heating_circuit",
                             "room_sensors",
+                            "room_grouping",
                             "expected_spf",
                             "grid_signal",
                             "allow_write",
@@ -282,6 +302,8 @@ def build(lang: str) -> dict:
                         )
                     },
                     "data_description": {
+                        "heating_circuit": t["heating_circuit_desc"],
+                        "room_grouping": t["room_grouping_desc"],
                         "allow_write": t["allow_write_desc"],
                         "allow_pv": t["allow_pv_desc"],
                         "allow_price_lock": t["allow_price_lock_desc"],
@@ -292,7 +314,11 @@ def build(lang: str) -> dict:
             }
         },
         "entity": entity,
-        "selector": {"heating_system": {"options": {k: v[idx] for k, v in SYSTEMS.items()}}},
+        "selector": {
+            "heating_system": {"options": {k: v[idx] for k, v in SYSTEMS.items()}},
+            "heating_circuit_option": {"options": {k: v[idx] for k, v in CIRCUITS.items()}},
+            "room_grouping": {"options": {k: v[idx] for k, v in GROUPINGS.items()}},
+        },
     }
 
 

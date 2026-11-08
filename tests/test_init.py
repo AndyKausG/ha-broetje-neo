@@ -9,7 +9,11 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import (
+    area_registry as ar,
+    entity_registry as er,
+    floor_registry as fr,
+)
 import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
@@ -606,3 +610,82 @@ async def test_circuit_mkr1(hass: HomeAssistant, fake_client, readonly_entry) ->
     await _setup(hass, readonly_entry)
     assert hass.states.get("sensor.wp_efficiency_check").attributes["circuit"] == "mkr1"
     assert readonly_entry.runtime_data.circuit == "mkr1"
+
+
+async def test_circuit_option_hkr(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    fake_client.input[35] = 326
+    fake_client.holding[107] = 1
+    entry = MockConfigEntry(
+        domain=readonly_entry.domain,
+        data=readonly_entry.data,
+        options={"heating_circuit": "hkr"},
+        unique_id="hkr",
+    )
+    await _setup(hass, entry)
+    attrs = hass.states.get("sensor.wp_efficiency_check").attributes
+    assert attrs["circuit"] == "hkr"
+    assert attrs["circuit_setting"] == "hkr"
+    assert entry.runtime_data.circuit == "hkr"
+
+
+async def test_circuit_auto_mkr2(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    fake_client.input[35] = 0
+    fake_client.input[36] = 300
+    fake_client.holding[112] = 1
+    fake_client.holding[113] = 210
+    await _setup(hass, readonly_entry)
+    attrs = hass.states.get("sensor.wp_efficiency_check").attributes
+    assert attrs["circuit"] == "mkr2"
+    assert attrs["circuit_setting"] == "auto"
+    assert readonly_entry.runtime_data.circuit == "mkr2"
+
+
+def _floor_setup(hass: HomeAssistant) -> None:
+    floors = fr.async_get(hass)
+    eg = floors.async_create("Erdgeschoss", level=0)
+    dg = floors.async_create("Dachgeschoss", level=2)
+    areas = ar.async_get(hass)
+    a_eg = areas.async_create("Wohnen", floor_id=eg.floor_id)
+    a_dg = areas.async_create("Schlafen", floor_id=dg.floor_id)
+    reg = er.async_get(hass)
+    for uid, area, val in (
+        ("a", a_eg.id, "20.0"),
+        ("b", a_eg.id, "22.0"),
+        ("c", a_dg.id, "19.0"),
+    ):
+        ent = reg.async_get_or_create("sensor", "test", uid, suggested_object_id=f"raum_{uid}")
+        reg.async_update_entity(ent.entity_id, area_id=area)
+        hass.states.async_set(ent.entity_id, val, {"friendly_name": f"Raum {uid}"})
+
+
+_ROOM_SENSORS = ["sensor.raum_a", "sensor.raum_b", "sensor.raum_c"]
+
+
+async def test_rooms_grouped_by_floor(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    _floor_setup(hass)
+    entry = MockConfigEntry(
+        domain=readonly_entry.domain,
+        data=readonly_entry.data,
+        options={"room_sensors": _ROOM_SENSORS},
+        unique_id="floors",
+    )
+    await _setup(hass, entry)
+    attrs = hass.states.get("sensor.wp_efficiency_check").attributes
+    rooms = attrs["rooms"]
+    assert [x["name"] for x in rooms] == ["Dachgeschoss", "Erdgeschoss"]
+    assert rooms[0]["level"] == 2 and rooms[0]["avg_7d"] == 19.0
+    assert rooms[1]["avg_7d"] == 21.0 and len(rooms[1]["sensors"]) == 2
+    assert attrs["coldest_room"] == "Dachgeschoss"
+
+
+async def test_rooms_grouping_sensor(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    _floor_setup(hass)
+    entry = MockConfigEntry(
+        domain=readonly_entry.domain,
+        data=readonly_entry.data,
+        options={"room_sensors": _ROOM_SENSORS, "room_grouping": "sensor"},
+        unique_id="sensors",
+    )
+    await _setup(hass, entry)
+    rooms = hass.states.get("sensor.wp_efficiency_check").attributes["rooms"]
+    assert len(rooms) == 3

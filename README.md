@@ -119,20 +119,28 @@ Home Assistant die standardmäßig deaktivierte Entität „MKR1 Raumsoll“). D
 die gemessene Vorlauf-Kurve von Mischer 1 an und warnt, wenn der Puffer deutlich höher
 geladen wird, als der Mischerkreis braucht („Puffer wird höher geladen als nötig“).
 Dann lohnt es sich, die Heizkurve des Heizkreises schrittweise zu senken.
+Mischer 2 wird genauso erkannt (Menü *Mischer 2 → Heizkurve M2*, Entität „MKR2 Raumsoll“).
+Den Heizkreis kannst du in den Optionen fest wählen (Automatisch, HKR, Mischerkreis 1 oder 2).
+Die Sensoren „Mischer 1 Kurve …“ zeigen dann den gewählten Mischerkreis.
 
 Expertenmenüs (Techniker/Fachmann) werden nie vorgeschlagen.
 
 ### Mehrere Raumsensoren / Mehrfamilienhaus
 
-Wähle einen Sensor pro Etage bzw. Wohnung, möglichst im meistgenutzten Raum. Jeder
-Sensor wird einzeln ausgewertet:
+Wähle einen Sensor pro Etage bzw. Wohnung, möglichst im meistgenutzten Raum. Standardmäßig
+werden die Sensoren **nach Stockwerk zusammengefasst**: Weise in Home Assistant die Bereiche
+den Stockwerken zu (*Einstellungen → Bereiche, Etiketten & Zonen*). Ein Sensor gehört zum
+Stockwerk seines Bereichs (oder des Bereichs seines Geräts). Mehrere Sensoren eines
+Stockwerks werden gemittelt, Sensoren ohne Stockwerk bleiben einzeln. Mit der Option
+„Raumsensoren zusammenfassen“ = „Jeder Sensor einzeln“ wird wie bisher jeder Sensor
+getrennt ausgewertet. Jede Gruppe wird einzeln ausgewertet:
 
 - **Senken** wird nur vorgeschlagen, wenn **alle** Räume über dem Soll liegen.
   Maßgeblich ist der kälteste Raum, nicht der Mittelwert.
 - **Zu kalt** meldet der Check, sobald **ein** Raum zu kalt ist, und nennt ihn.
 - **Etagen unterschiedlich warm** (mehr als 1,5 K): eigener Hinweis. Die Ursache ist meist
   die Wasserverteilung (hydraulischer Abgleich, Ventile), nicht die Heizkurve.
-- Die Karte listet alle Räume mit ihrer Abweichung vom Soll, den kältesten zuerst.
+- Die Karte listet alle Räume bzw. Stockwerke mit ihrer Abweichung vom Soll (oberstes Stockwerk zuerst, sonst die kältesten zuerst) und markiert den kältesten.
 
 Im vermieteten Mehrfamilienhaus vor jeder Absenkung die Bewohner informieren und die
 üblichen Mindesttemperaturen für Wohnungen beachten.
@@ -185,7 +193,9 @@ Integration → **Konfigurieren**:
 | Option | Standard | Was passiert |
 |--------|----------|--------------|
 | Heizsystem | Fußbodenheizung | für die Richtwerte im Effizienz-Check |
+| Heizkreis für den Effizienz-Check | Automatisch | Automatisch (Mischer 1, dann Mischer 2, sonst HKR), HKR, Mischerkreis 1 oder 2 |
 | Raumtemperatur-Sensoren | – | einer oder mehrere, für den Effizienz-Check |
+| Raumsensoren zusammenfassen | Nach Stockwerk | Mittelwert pro Stockwerk der Bereiche, oder jeder Sensor einzeln |
 | Geplante Jahresarbeitszahl | 0 (unbekannt) | Vergleichswert, z.B. aus dem Förderantrag |
 | Einstellungen schreiben erlauben | aus | Betriebsart (ohne „Aus“) und Sollwerte in den sicheren Grenzen |
 | PV-/Leistungssteuerung erlauben | aus | PV-Überschuss an die Wärmepumpe melden |

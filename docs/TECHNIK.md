@@ -275,6 +275,15 @@ Der Check schreibt nie. Er arbeitet unabhängig von allen Freigaben.
   Außentemperatur (R10, R33), VL/RL (R12/R13), RL-Soll (R34), Verdichter (R25),
   Anforderung (R41), Vierwegeventil (R27), Überhitzung (R17 − R18), Raumsoll (R101),
   Energiezähler und der Mittelwert der Raumsensoren aus der Option `room_sensors`.
+- **Gruppierung der Raumsensoren (Option `room_grouping`):** Bei `floor` (Standard) wird
+  je Sensor der Bereich (Entitäts-Registry `area_id`, sonst `area_id` des Geräts), davon
+  das Stockwerk (Bereichs-Registry `floor_id`) ermittelt. Sensoren mit Stockwerk werden
+  pro Stockwerk gemittelt (Schlüssel `floor:<floor_id>`), Sensoren ohne Stockwerk bleiben
+  einzeln (Schlüssel Entitäts-ID). Bei `sensor` wird jeder Sensor einzeln geführt. Der
+  Coordinator ergänzt je Schlüssel `name`, `level` und `sensors` und sortiert `rooms`
+  nach Stockwerksebene absteigend (wenn alle eine haben), sonst nach `avg_7d`
+  aufsteigend. Attribut `coldest_room` = Name des Eintrags mit der kleinsten
+  `dev_7d`. Der Advisor entscheidet weiter nach der kältesten Gruppe.
 - **Mischerkreis 1 (MKR1):** Der Check erkennt MKR1 als aktiv, wenn R35 (VL-Soll MKR1)
   einen Wert > 0 liefert und R107 (Betriebsart MKR1, Holding) ≠ 0 ist. Dann kommen
   Raumsoll aus R108 statt R101 und zusätzlich das VL-Soll R35 ins `Sample`
@@ -285,6 +294,13 @@ Der Check schreibt nie. Er arbeitet unabhängig von allen Freigaben.
   Puffers. Die Messkurve wird mit demselben Verfahren wie `rl_set_*` gefittet
   (≥ 12 Stundenpunkte mit ≥ 10 Samples, ≥ 4 K Außentemperaturbereich, max. 10 K
   Extrapolation) und als `mkr_set_18`, `mkr_set_0`, `mkr_set_m15` ausgegeben.
+- **Mischerkreis 2 und Option `heating_circuit`:** Werte `auto`, `hkr`, `mkr1`, `mkr2`
+  (Standard `auto`). `auto` wählt MKR1 wie oben, sonst MKR2 (R36 > 0 und R112 ≠ 0), sonst
+  HKR; feste Werte werden unverändert verwendet. Für MKR2 kommen `mkr_set` aus R36 und
+  der Raumsoll aus R113; Texte nennen „Mischer 2“, „Heizkurve M2“, „Grundbedienung M2“
+  und „MKR2 Raumsoll“. Die Sensoren `mkr_set_*` bleiben unverändert benannt und zeigen
+  den gewählten Mischerkreis. Das Attribut `circuit` enthält den aufgelösten Wert,
+  `circuit_setting` die Einstellung. `buffer_overheat` gilt für beide Mischerkreise.
 - Die Daten werden zu **Stundenbuckets** verdichtet und 14 Tage behalten. Dazu kommen
   abgeschlossene Verdichterläufe (Ende, Dauer) und ein Zählerstand pro Tag
   (40 Tage behalten).
@@ -372,7 +388,9 @@ Alle Schwellen sind Richtwerte und stehen als Konstanten in `advisor.py`.
 | Option | Schlüssel | Standard | Wirkung |
 |--------|-----------|----------|---------|
 | Heizsystem | `heating_system` | underfloor | Richtwerte Spreizung, Werkskurven-Vergleich |
-| Raumtemperatur-Sensoren | `room_sensors` | – | Mittelwert für den Check |
+| Heizkreis für den Effizienz-Check | `heating_circuit` | auto | auto / hkr / mkr1 / mkr2, 5.1 |
+| Raumtemperatur-Sensoren | `room_sensors` | – | Werte für den Check |
+| Raumsensoren zusammenfassen | `room_grouping` | floor | floor = Mittelwert pro Stockwerk, sensor = einzeln, 5.1 |
 | Geplante JAZ | `expected_spf` | 0 | Vergleichswert |
 | Signal des Netzbetreibers | `grid_signal` | – | Binärsensor, 4.3 |
 | Einstellungen schreiben | `allow_write` | false | 3.2 |

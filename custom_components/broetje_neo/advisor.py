@@ -37,6 +37,7 @@ CURVE_POINTS = (18.0, 0.0, -15.0)
 FACTORY_CURVE_UNDERFLOOR = {18.0: 22.0, 0.0: 27.0, -15.0: 30.0}
 MENU_CURVE = "Hauptmenü → Heizkreis → Heizkurve"
 MENU_CURVE_M1 = "Hauptmenü → Mischer 1 → Heizkurve M1"
+MENU_CURVE_M2 = "Hauptmenü → Mischer 2 → Heizkurve M2"
 
 
 @dataclass
@@ -47,7 +48,7 @@ class Sample:
     t_out: float | None = None
     t_out_delayed: float | None = None
     rl_set: float | None = None  # return setpoint of the controller (heating curve)
-    mkr_set: float | None = None  # flow setpoint of mixing circuit 1 (reg. 35)
+    mkr_set: float | None = None  # flow setpoint of the selected mixing circuit (reg. 35 / 36)
     room_set: float | None = None
     t_flow: float | None = None
     t_return: float | None = None
@@ -414,7 +415,7 @@ class Context:
     expected_spf: float | None = None
     fault: bool = False
     has_room_sensor: bool = False
-    circuit: str = "hkr"  # heated circuit: "hkr" (direct) or "mkr1" (mixing circuit 1)
+    circuit: str = "hkr"  # heated circuit: "hkr" (direct), "mkr1" or "mkr2" (mixing circuit)
 
 
 def _fmt(v: float) -> str:
@@ -474,8 +475,9 @@ def advise(
         )
     rl0, rl15, rl18 = fig.get("rl_set_0"), fig.get("rl_set_m15"), fig.get("rl_set_18")
     ms0, ms15, ms18 = fig.get("mkr_set_0"), fig.get("mkr_set_m15"), fig.get("mkr_set_18")
-    mkr = ctx.circuit == "mkr1"
-    menu = MENU_CURVE_M1 if mkr else MENU_CURVE
+    mkr = ctx.circuit in ("mkr1", "mkr2")
+    num = ctx.circuit[-1] if mkr else ""  # mixing circuit number
+    menu = (MENU_CURVE_M2 if num == "2" else MENU_CURVE_M1) if mkr else MENU_CURVE
     curve_txt = ""
     if mkr and ms0 is not None:
         parts = [
@@ -483,7 +485,7 @@ def advise(
             for p, v in ((18, ms18), (0, ms0), (-15, ms15))
             if v is not None
         ]
-        curve_txt = " Gemessenes Vorlauf-Soll Mischer 1: " + ", ".join(parts) + "."
+        curve_txt = f" Gemessenes Vorlauf-Soll Mischer {num}: " + ", ".join(parts) + "."
     elif not mkr and rl0 is not None:
         parts = [
             f"{_fmt(v)} °C bei {p:.0f} °C"
@@ -520,9 +522,9 @@ def advise(
             else:
                 if mkr:
                     todo = (
-                        "Gleichmäßig zu warm: Raumsoll Mischer 1 (Grundbedienung M1) um "
-                        "0,5–1 K senken. Das verschiebt die ganze Heizkurve von Mischer 1 "
-                        "parallel. In Home Assistant ist das die Entität „MKR1 Raumsoll“ "
+                        f"Gleichmäßig zu warm: Raumsoll Mischer {num} (Grundbedienung M{num}) um "
+                        f"0,5–1 K senken. Das verschiebt die ganze Heizkurve von Mischer {num} "
+                        f"parallel. In Home Assistant ist das die Entität „MKR{num} Raumsoll“ "
                         "(standardmäßig deaktiviert, kann aktiviert werden). "
                         f"Alternativ alle Punkte unter {menu} um 1 K senken."
                     )
@@ -558,7 +560,7 @@ def advise(
                     "Räume erreichen die Solltemperatur nicht",
                     f"{room_txt}, eingestellt {_fmt(room_set)} °C ({_fmt(dev)} K)." + curve_txt,
                     "Heizkurve nicht senken. Zuerst prüfen: Ventile/Thermostate offen, "
-                    f"Fenster, Luft im System. Danach {'Raumsoll Mischer 1' if mkr else 'Raumsoll (HKR)'} oder "
+                    f"Fenster, Luft im System. Danach {f'Raumsoll Mischer {num}' if mkr else 'Raumsoll (HKR)'} oder "
                     f"{menu} um 1 K anheben. Hilft das nicht, Fachbetrieb "
                     "(hydraulischer Abgleich).",
                     "selbst oder Fachbetrieb",
@@ -610,9 +612,9 @@ def advise(
                 "room_set_high",
                 "info",
                 "Hohe Raumsolltemperatur",
-                f"Raumsoll {'Mischer 1' if mkr else '(HKR)'} {_fmt(room_set)} °C. "
+                f"Raumsoll {f'Mischer {num}' if mkr else '(HKR)'} {_fmt(room_set)} °C. "
                 "Bei der BLW NEO verschiebt dieser Wert "
-                f"die ganze Heizkurve{' von Mischer 1' if mkr else ''}. Ob die Räume wirklich so warm sind, ist ohne "
+                f"die ganze Heizkurve{f' von Mischer {num}' if mkr else ''}. Ob die Räume wirklich so warm sind, ist ohne "
                 "Raumsensor nicht bekannt.",
                 "Nicht pauschal senken. Erst einen Raumtemperatur-Sensor in den Optionen "
                 "wählen, dann zeigt der Check, ob und wo gesenkt werden kann. Faustregel: "
@@ -630,11 +632,11 @@ def advise(
                 "info",
                 "Puffer wird höher geladen als nötig",
                 f"Ladeziel des Puffers (HKR, Rücklauf-Soll) bei 0 °C außen ca. {_fmt(rl0)} °C, "
-                f"Vorlauf-Soll Mischer 1 nur ca. {_fmt(ms0)} °C ({_fmt(diff)} K Unterschied).",
+                f"Vorlauf-Soll Mischer {num} nur ca. {_fmt(ms0)} °C ({_fmt(diff)} K Unterschied).",
                 "Die Wärmepumpe erzeugt mehr Wärme, als der Mischerkreis abnimmt. Die "
                 f"Heizkurve des HKR senken ({MENU_CURVE}, oder Raumsoll HKR als Parallelverschiebung), "
                 "in kleinen Schritten, bis der Puffer nur noch ca. 2–3 K über dem Bedarf von "
-                "Mischer 1 liegt. Jedes Grad weniger spart ca. 2,5 % Strom (DUH-Ratgeber). "
+                f"Mischer {num} liegt. Jedes Grad weniger spart ca. 2,5 % Strom (DUH-Ratgeber). "
                 "Danach prüfen, dass die Räume warm bleiben.",
                 "selbst oder Fachbetrieb",
             )

@@ -27,7 +27,9 @@
         "description": "Register 125 (PV power) is reset to 0 if not refreshed within this time, on HA start and on stop.",
         "data": {
           "heating_system": "Heating system",
+          "heating_circuit": "Heating circuit for the efficiency check",
           "room_sensors": "Room temperature sensors (for the efficiency check)",
+          "room_grouping": "Group room sensors",
           "expected_spf": "Planned seasonal performance factor (0 = unknown)",
           "grid_signal": "Grid operator signal (optional, e.g. control box / SG-Ready via binary sensor)",
           "allow_write": "Allow writing settings",
@@ -40,6 +42,8 @@
           "pv_max_power": "Maximum PV power target (W)"
         },
         "data_description": {
+          "heating_circuit": "Auto detects a mixing circuit. Choose manually if the detection is wrong.",
+          "room_grouping": "By floor uses the floors of the areas in Home Assistant (average per floor).",
           "allow_write": "Operating mode (not 'off') and setpoints within safe limits. Off = read-only.",
           "allow_pv": "PV power target (reg. 125) incl. watchdog. The NEO-RKM decides itself when and how strongly the heat pump runs.",
           "allow_price_lock": "Pause the heat pump during expensive hours like a utility lock. Max. 2 h per lock and 6 h per day, min. 60 min pause, not below -10 °C outdoor.",
@@ -387,6 +391,20 @@
         "underfloor": "Underfloor heating",
         "radiator": "Radiators",
         "mixed": "Mixed"
+      }
+    },
+    "heating_circuit_option": {
+      "options": {
+        "auto": "Automatic",
+        "hkr": "Direct heating circuit (HKR)",
+        "mkr1": "Mixing circuit 1",
+        "mkr2": "Mixing circuit 2"
+      }
+    },
+    "room_grouping": {
+      "options": {
+        "floor": "By floor",
+        "sensor": "Each sensor"
       }
     }
   }

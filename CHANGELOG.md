@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0] - 2026-11-08
+
+- **New option "Heating circuit for the efficiency check"** (`heating_circuit`: automatic, HKR, mixing circuit 1, mixing circuit 2). Automatic detects mixing circuit 1, then mixing circuit 2 (flow setpoint register 35 / 36 above 0 and mode register 107 / 112 not off), else the direct circuit. Mixing circuit 2 uses its room setpoint (register 113), the "Mischer 2" menu path and the "MKR2 Raumsoll" entity in the hints. The `mkr_set_*` sensors show the flow setpoint of the selected mixing circuit.
+- **New option "Group room sensors"** (`room_grouping`: by floor, each sensor). By floor (default) averages the room sensors per floor of their area in Home Assistant; sensors without a floor stay individual. The check still follows the coldest group.
+- The efficiency check sensor has new attributes `circuit_setting` and `coldest_room`; the entries of `rooms` carry `name`, `level` and `sensors`. With floor levels they are sorted top floor first, else coldest first.
+- Dashboard card shows floors, marks the coldest one and the number of sensors.
+
 ## [0.2.0] - 2026-11-08
 
 - **Efficiency check supports a mixing circuit 1 (MKR1):** if the flow setpoint (register 35) is above 0 and the MKR1 mode (register 107) is not off, the check uses the MKR1 room setpoint (register 108) and reports the measured MKR1 heating curve (new sensors "Mixer 1 curve flow setpoint at 18 / 0 / minus 15 degrees"). Hints then name the Mischer 1 menu path and the "MKR1 Raumsoll" entity; the factory-curve comparison is skipped.

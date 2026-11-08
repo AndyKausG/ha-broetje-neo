@@ -27,7 +27,9 @@
         "description": "Register 125 (PV-Leistung) wird auf 0 gesetzt, wenn es nicht innerhalb dieser Zeit erneuert wird, sowie beim Start und Stopp von HA.",
         "data": {
           "heating_system": "Heizsystem",
+          "heating_circuit": "Heizkreis für den Effizienz-Check",
           "room_sensors": "Raumtemperatur-Sensoren (für den Effizienz-Check)",
+          "room_grouping": "Raumsensoren zusammenfassen",
           "expected_spf": "Geplante Jahresarbeitszahl (0 = unbekannt)",
           "grid_signal": "Signal des Netzbetreibers (optional, z.B. Steuerbox / SG-Ready als Binärsensor)",
           "allow_write": "Einstellungen schreiben erlauben",
@@ -40,6 +42,8 @@
           "pv_max_power": "Maximale PV-Leistungsvorgabe (W)"
         },
         "data_description": {
+          "heating_circuit": "Automatisch erkennt einen Mischerkreis. Manuell wählen, wenn die Erkennung nicht passt.",
+          "room_grouping": "Nach Stockwerk nutzt die Stockwerke der Bereiche in Home Assistant (Mittelwert pro Stockwerk).",
           "allow_write": "Betriebsart (nicht 'Aus') und Sollwerte in sicheren Grenzen. Aus = nur lesen.",
           "allow_pv": "PV-Leistungsvorgabe (Reg. 125) inkl. Watchdog. Wann und wie stark die WP läuft, entscheidet das NEO-RKM selbst.",
           "allow_price_lock": "Wärmepumpe bei hohen Strompreisen wie bei einer EVU-Sperre pausieren. Max. 2 h am Stück und 6 h pro Tag, mind. 60 min Pause, nicht unter -10 °C außen.",
@@ -387,6 +391,20 @@
         "underfloor": "Fußbodenheizung",
         "radiator": "Heizkörper",
         "mixed": "Gemischt"
+      }
+    },
+    "heating_circuit_option": {
+      "options": {
+        "auto": "Automatisch",
+        "hkr": "Heizkreis direkt (HKR)",
+        "mkr1": "Mischerkreis 1",
+        "mkr2": "Mischerkreis 2"
+      }
+    },
+    "room_grouping": {
+      "options": {
+        "floor": "Nach Stockwerk",
+        "sensor": "Jeder Sensor einzeln"
       }
     }
   }

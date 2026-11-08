@@ -256,6 +256,7 @@ def _hints_attr(c: BroetjeNeoCoordinator) -> dict[str, Any]:
     return {
         "hint_count": len(c.hints),
         "circuit": c.circuit,
+        "circuit_setting": c.circuit_setting,
         "data_days": c.data_days,
         "hints": [
             {
@@ -269,6 +270,7 @@ def _hints_attr(c: BroetjeNeoCoordinator) -> dict[str, Any]:
             for h in c.hints
         ],
         "rooms": c.rooms,
+        "coldest_room": c.coldest_room,
         "note": "Vorschläge ohne Gewähr. Änderungen am Bedienteil oder mit dem Fachbetrieb.",
     }
 

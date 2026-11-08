@@ -17,9 +17,9 @@ cards:
 
       {% set rooms = state_attr(s, 'rooms') or [] -%}
       {% if rooms | count > 1 %}
-      **Räume (7 Tage, kältester zuerst):**
+      **Räume / Stockwerke (7 Tage):**
       {% for r in rooms %}
-      - {{ r.name }}: {{ r.avg_7d }} °C{% if r.dev_7d is not none %} ({{ '%+.1f' | format(r.dev_7d) }} K zum Soll){% endif %}
+      - {{ r.name }}: {{ r.avg_7d }} °C{% if r.dev_7d is not none %} ({{ '%+.1f' | format(r.dev_7d) }} K zum Soll){% endif %}{% if r.name == state_attr(s, 'coldest_room') %} ❄️ kältester{% endif %}{% if (r.sensors or []) | count > 1 %} ({{ r.sensors | count }} Sensoren){% endif %}
       {%- endfor %}
 
       {% endif %}
