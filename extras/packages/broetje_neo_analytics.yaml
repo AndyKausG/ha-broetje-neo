@@ -354,11 +354,13 @@ automation:
             {% set u = states('sensor.wpa_pv_uberschuss_fur_wp') | float(0)
                        - states('input_number.wpa_pv_reserve') | float(0) %}
             {{ [[((u / 50) | round(0, 'floor') * 50), maxw] | min, 0] | max | int }}
+      # lehnt die Integration ab (z.B. Netzbetreiber steuert), läuft es einfach weiter
       - action: number.set_value
         target:
           entity_id: number.brotje_neo_pv_leistung
         data:
-          value: "{{ wert if ok else 0 }}"
+          value: "{{ wert if ok and is_state('binary_sensor.brotje_neo_netzbetreiber_steuert', 'off') else 0 }}"
+        continue_on_error: true
 
   - id: wpa_pv_vorgabe_aus
     alias: "WP: PV-Vorgabe zurücksetzen bei Sperre"

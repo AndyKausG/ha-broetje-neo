@@ -35,6 +35,7 @@ Entwickelt mit einer BLW NEO 18b. Für die Module IWR/GTW-08 oder ISR Plus gibt 
 | Prüfung im Kern | Jeder Schreibbefehl wird zentral geprüft, auch aus Automationen und Skripten. Die Grenzen lassen sich nicht umgehen |
 | Schonend schreiben | Höchstens alle 5 s auf dasselbe Register (Herstellervorgabe) |
 | Rückfall in den Normalbetrieb | Bei HA-Start, -Stopp und Entfernen der Integration werden PV-Vorgabe und Preissperre zurückgesetzt |
+| Netzbetreiber hat Vorrang | Während einer Sperre/Steuerung durch den Netzbetreiber (EVU, §14a) keine PV-Vorgabe und keine eigene Sperre |
 
 Restrisiko: Stürzt Home Assistant ab, ohne sauber zu beenden, bleibt eine aktive
 PV-Vorgabe oder Preissperre bestehen, bis HA wieder läuft. Beim nächsten Start setzt
@@ -162,6 +163,7 @@ Integration → **Konfigurieren**:
 | Preissperre erlauben | aus | Wärmepumpe bei hohem Strompreis pausieren |
 | Preissperre max. Dauer | 120 min | 30–120 min |
 | Preissperre über externen Schalter | – | z.B. Shelly, siehe unten; leer = Modbus |
+| Signal des Netzbetreibers | – | Binärsensor, z.B. Steuerbox; EVU-Eingang wird automatisch erkannt |
 | Abfrageintervall | 15 s | 5–300 s |
 | PV-Watchdog | 120 s | PV-Vorgabe verfällt, wenn sie nicht erneuert wird (0 = aus) |
 | Max. PV-Leistungsvorgabe | 6000 W | Obergrenze |
@@ -227,6 +229,36 @@ Empfohlener, ausfallsicherer Aufbau:
 Die Integration prüft jede Sperre: Meldet die Wärmepumpe nach 2 Minuten weiterhin
 „EVU-Freigabe“, hebt sie die Sperre auf, deaktiviert die Funktion und zeigt einen Hinweis
 im Effizienz-Check („Verdrahtung prüfen lassen“).
+
+## Steuerung durch den Netzbetreiber (§14a EnWG, EVU-Sperre)
+
+Viele Wärmepumpen werden vom Netzbetreiber gesteuert: klassisch über eine EVU-Sperre
+(Wärmepumpentarif) oder seit 2024 als steuerbare Verbrauchseinrichtung nach **§14a EnWG**
+(z.B. über eine Steuerbox, im Gegenzug reduzierte Netzentgelte). Wie genau dein
+Netzbetreiber steuert, steht in deinem Vertrag bzw. weiß dein Elektriker.
+
+**Grundsatz der Integration: Der Netzbetreiber hat immer Vorrang.**
+
+| Wenn der Netzbetreiber steuert … | … macht die Integration |
+|------|------|
+| PV-Vorgabe aktiv | setzt sie auf 0 und nimmt keine neue an (keine Mehrleistung gegen eine Begrenzung) |
+| Preissperre gewünscht | startet keine eigene Sperre |
+| Sperrzeiten | zählt die Zeit des Netzbetreibers zum Tageslimit von 6 h; danach gilt die Pause von 60 min |
+| Echte Sperre | wird nie aufgehoben (Modbus: nur „sperren“ möglich, Shelly: in Reihe) |
+
+Erkennung:
+- **EVU-Eingang** der Wärmepumpe: automatisch über „EVU-Freigabe“ (Register 32).
+- **Andere Signale** (z.B. Steuerbox an den SG-Ready-Eingängen des NEO-RKM): Diese sind
+  über Modbus nicht lesbar. Mach das Signal als Binärsensor in Home Assistant verfügbar,
+  z.B. über einen potentialfreien Kontakt der Steuerbox am Eingang eines Shelly
+  (Elektrofachkraft), und wähle ihn in den Optionen unter *Signal des Netzbetreibers*.
+
+Anzeige: `binary_sensor.…_netzbetreiber_steuert` und
+`sensor.…_netzbetreiber_steuerung_heute` (Minuten).
+
+> Dies ist keine Rechtsberatung. Die Integration greift nicht in die Steuerung des
+> Netzbetreibers ein. Ob zusätzliche eigene Sperren oder eine PV-Steuerung mit deinem
+> Vertrag vereinbar sind, klärst du im Zweifel mit dem Netzbetreiber.
 
 ---
 

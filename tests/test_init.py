@@ -516,3 +516,63 @@ async def test_shelly_stale_on_is_released(hass: HomeAssistant, fake_client, con
     await _setup_shelly(hass, config_entry)
     await hass.async_block_till_done()
     assert hass.states.get("input_boolean.relay").state == STATE_OFF
+
+
+# --------------------------------------------------- grid operator (§14a)
+async def test_grid_lock_has_priority(
+    hass: HomeAssistant, fake_client, config_entry, freezer: FrozenDateTimeFactory
+) -> None:
+    await _setup(hass, config_entry)
+    await hass.services.async_call(
+        "number", "set_value", {"entity_id": "number.wp_pv_power", "value": 1500}, blocking=True
+    )
+    assert fake_client.holding[125] == 1500
+    fake_client.input[32] = 0  # EVU input: grid operator locks
+    freezer.tick(timedelta(seconds=20))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get("binary_sensor.wp_grid_operator_control").state == STATE_ON
+    assert fake_client.holding[125] == 0  # PV target dropped
+    with pytest.raises(HomeAssistantError, match="Netzbetreiber"):
+        await hass.services.async_call(
+            "number", "set_value", {"entity_id": "number.wp_pv_power", "value": 1000}, blocking=True
+        )
+    with pytest.raises(HomeAssistantError, match="Netzbetreiber"):
+        await _lock(hass, True)
+    assert fake_client.holding[150] == 0
+    # grid lock time counts, and a pause follows its end
+    freezer.tick(timedelta(seconds=20))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    coordinator = config_entry.runtime_data
+    assert coordinator._grid_day_s > 0  # noqa: SLF001
+    fake_client.input[32] = 1
+    freezer.tick(timedelta(seconds=20))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get("binary_sensor.wp_grid_operator_control").state == STATE_OFF
+    with pytest.raises(HomeAssistantError, match="Mindestpause"):
+        await _lock(hass, True)
+
+
+async def test_grid_signal_entity(hass: HomeAssistant, fake_client, config_entry) -> None:
+    hass.states.async_set("binary_sensor.steuerbox", "on")
+    entry = MockConfigEntry(
+        domain=config_entry.domain,
+        data=config_entry.data,
+        options={**config_entry.options, "grid_signal": "binary_sensor.steuerbox"},
+        unique_id="grid",
+    )
+    await _setup(hass, entry)
+    assert hass.states.get("binary_sensor.wp_grid_operator_control").state == STATE_ON
+    with pytest.raises(HomeAssistantError, match="Netzbetreiber"):
+        await _lock(hass, True)
+
+
+async def test_own_lock_is_not_grid_lock(hass: HomeAssistant, fake_client, config_entry) -> None:
+    await _setup(hass, config_entry)
+    await _lock(hass, True)
+    fake_client.input[32] = 0  # caused by our own lock
+    await config_entry.runtime_data.async_refresh()
+    await hass.async_block_till_done()
+    assert hass.states.get("binary_sensor.wp_grid_operator_control").state == STATE_OFF

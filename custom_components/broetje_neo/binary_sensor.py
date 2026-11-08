@@ -66,6 +66,11 @@ BINARY_SENSORS: tuple[BroetjeBinaryDescription, ...] = (
     BroetjeBinaryDescription(key="demand_heating", is_on_fn=_demand(20)),
     BroetjeBinaryDescription(key="demand_dhw", is_on_fn=_demand(30)),
     BroetjeBinaryDescription(key="demand_cooling", is_on_fn=_demand(10)),
+    BroetjeBinaryDescription(
+        key="grid_control",
+        icon="mdi:transmission-tower",
+        is_on_fn=lambda c: c.grid_control_active if c.data is not None else None,
+    ),
 )
 
 

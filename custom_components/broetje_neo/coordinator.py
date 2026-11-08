@@ -23,6 +23,7 @@ from .const import (
     CONF_ALLOW_PV,
     CONF_ALLOW_WRITE,
     CONF_EXPECTED_SPF,
+    CONF_GRID_SIGNAL,
     CONF_HEATING_SYSTEM,
     CONF_PRICE_LOCK_MAX,
     CONF_PRICE_LOCK_SWITCH,
@@ -112,8 +113,13 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         self.lock_switch: str | None = opts.get(CONF_PRICE_LOCK_SWITCH) or None
         self._lock_verify_at: float | None = None
         self.price_lock_problem: str | None = None
+        # Grid operator control (EVU lock / §14a): always has priority
+        self.grid_signal: str | None = opts.get(CONF_GRID_SIGNAL) or None
+        self._grid_was_active = False
+        self._grid_last_tick: float | None = None
         self._lock_day: str | None = None
-        self._lock_day_s: float = 0.0  # locked seconds today (finished locks)
+        self._lock_day_s: float = 0.0  # locked seconds today (finished own locks)
+        self._grid_day_s: float = 0.0  # seconds controlled by the grid operator today
 
         # Efficiency check
         self.heating_system: str = opts.get(CONF_HEATING_SYSTEM, DEFAULT_HEATING_SYSTEM)
@@ -168,6 +174,8 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
                 self._client.close()
                 raise UpdateFailed(f"Modbus read failed: {err}") from err
 
+        self._track_grid_control(data)
+        await self._async_grid_priority(data)
         await self._async_pv_watchdog(data)
         await self._async_price_lock_guard(data)
         self._update_advice(data)
@@ -356,15 +364,65 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         except HomeAssistantError as err:
             _LOGGER.error("Releasing price lock failed: %s", err)
 
+    # ------------------------------------------------- grid operator control
+    def _grid_active(self, data: RegisterData | None) -> bool:
+        """True while the grid operator locks/limits the heat pump.
+
+        EVU release off (reg. 32) while no own price lock is engaged, or the
+        optional external signal (e.g. control box / SG-Ready via a sensor).
+        """
+        if self.grid_signal:
+            st = self.hass.states.get(self.grid_signal)
+            if st is not None and st.state == "on":
+                return True
+        if data is None or self._lock_active(data):
+            return False
+        release = raw_value(EVU_RELEASE, data[Table.INPUT])
+        return release == 0
+
+    @property
+    def grid_control_active(self) -> bool:
+        """Public state for the binary sensor."""
+        return self._grid_active(self.data)
+
+    def _track_grid_control(self, data: RegisterData) -> None:
+        now = time.monotonic()
+        active = self._grid_active(data)
+        self._locked_today_s()  # roll the day if needed
+        if self._grid_was_active and self._grid_last_tick is not None:
+            self._grid_day_s += min(now - self._grid_last_tick, 120.0)
+        if self._grid_was_active and not active:
+            self._lock_ended = now  # pause also after a grid operator lock
+        self._grid_was_active = active
+        self._grid_last_tick = now
+
+    @property
+    def grid_lock_today_min(self) -> float:
+        """Minutes the grid operator controlled the heat pump today."""
+        self._locked_today_s()
+        return round(self._grid_day_s / 60, 0)
+
+    async def _async_grid_priority(self, data: RegisterData) -> None:
+        """No PV power target while the grid operator controls the heat pump."""
+        if not self.allow_pv or not self._grid_active(data):
+            return
+        if raw_value(PV_POWER, data[Table.HOLDING]):
+            _LOGGER.info("Grid operator control active, PV power target set to 0")
+            try:
+                await self._write_raw(PV_POWER, 0)
+                data[Table.HOLDING][PV_POWER.address] = 0
+            except HomeAssistantError as err:
+                _LOGGER.error("Could not reset PV power target: %s", err)
+
     def _today(self) -> str:
         return time.strftime("%Y-%m-%d")
 
     def _locked_today_s(self) -> float:
         """Locked seconds today incl. a running lock."""
         if self._lock_day != self._today():
-            self._lock_day, self._lock_day_s = self._today(), 0.0
+            self._lock_day, self._lock_day_s, self._grid_day_s = self._today(), 0.0, 0.0
         running = time.monotonic() - self._lock_started if self._lock_started else 0.0
-        return self._lock_day_s + running
+        return self._lock_day_s + self._grid_day_s + running
 
     async def _release_price_lock(self) -> None:
         if self.lock_switch:
@@ -417,6 +475,10 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
 
     async def async_write(self, reg: Register, value: float, *, refresh: bool = True) -> None:
         """Write a scaled value to a holding register (safety checked)."""
+        if reg is PV_POWER and value > 0 and self._grid_active(self.data):
+            raise HomeAssistantError(
+                "Netzbetreiber steuert die Wärmepumpe gerade (EVU/§14a), keine PV-Vorgabe"
+            )
         await self._write_raw(reg, value)
         if reg is PV_POWER:
             self._pv_last_set = time.monotonic()
@@ -436,6 +498,10 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             return
         if not self._lock_supported():
             raise HomeAssistantError("Preissperre ist nicht verfügbar")
+        if self._grid_active(self.data):
+            raise HomeAssistantError(
+                "Netzbetreiber steuert die Wärmepumpe gerade (EVU/§14a), keine eigene Sperre"
+            )
         if self.price_lock_problem:
             raise HomeAssistantError(self.price_lock_problem)
         if self._lock_ended is not None:
@@ -448,8 +514,9 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
                 )
         if self._locked_today_s() >= safety.PRICE_LOCK_MAX_MINUTES_PER_DAY * 60:
             raise HomeAssistantError(
-                "Preissperre heute bereits "
-                f"{safety.PRICE_LOCK_MAX_MINUTES_PER_DAY // 60} h aktiv gewesen (Tageslimit)"
+                "Wärmepumpe heute bereits "
+                f"{safety.PRICE_LOCK_MAX_MINUTES_PER_DAY // 60} h gesperrt "
+                "(eigene Sperren und Netzbetreiber zusammen, Tageslimit)"
             )
         t_out = self.value(T_OUTDOOR)
         if t_out is None or t_out < safety.PRICE_LOCK_MIN_OUTDOOR_TEMP:

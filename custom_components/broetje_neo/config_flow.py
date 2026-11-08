@@ -23,6 +23,7 @@ from .const import (
     CONF_ALLOW_PV,
     CONF_ALLOW_WRITE,
     CONF_EXPECTED_SPF,
+    CONF_GRID_SIGNAL,
     CONF_HEATING_SYSTEM,
     CONF_MODEL,
     CONF_PRICE_LOCK_MAX,
@@ -165,6 +166,10 @@ class BroetjeNeoOptionsFlow(OptionsFlow):
                         min=0, max=7, step=0.1, mode=selector.NumberSelectorMode.BOX
                     )
                 ),
+                vol.Optional(
+                    CONF_GRID_SIGNAL,
+                    description={"suggested_value": opts.get(CONF_GRID_SIGNAL)},
+                ): selector.EntitySelector(selector.EntitySelectorConfig(domain="binary_sensor")),
                 vol.Required(
                     CONF_ALLOW_WRITE,
                     default=opts.get(CONF_ALLOW_WRITE, DEFAULT_ALLOW_WRITE),

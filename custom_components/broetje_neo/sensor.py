@@ -324,6 +324,13 @@ ADVISOR_SENSORS: tuple[BroetjeSensorDescription, ...] = (
         UnitOfTemperature.CELSIUS,
         device_class=SensorDeviceClass.TEMPERATURE,
     ),
+    BroetjeSensorDescription(
+        key="grid_lock_today",
+        device_class=SensorDeviceClass.DURATION,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        icon="mdi:transmission-tower-off",
+        value_fn=lambda c: c.grid_lock_today_min,
+    ),
     _check("spf_30d", precision=2),
     _check("spf_heating_30d", precision=2),
     _check("spf_dhw_30d", precision=2),

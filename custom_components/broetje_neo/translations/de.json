@@ -29,6 +29,7 @@
           "heating_system": "Heizsystem",
           "room_sensors": "Raumtemperatur-Sensoren (für den Effizienz-Check)",
           "expected_spf": "Geplante Jahresarbeitszahl (0 = unbekannt)",
+          "grid_signal": "Signal des Netzbetreibers (optional, z.B. Steuerbox / SG-Ready als Binärsensor)",
           "allow_write": "Einstellungen schreiben erlauben",
           "allow_pv": "PV-/Leistungssteuerung erlauben",
           "allow_price_lock": "Preissperre erlauben",
@@ -42,7 +43,8 @@
           "allow_write": "Betriebsart (nicht 'Aus') und Sollwerte in sicheren Grenzen. Aus = nur lesen.",
           "allow_pv": "PV-Leistungsvorgabe (Reg. 125) inkl. Watchdog. Wann und wie stark die WP läuft, entscheidet das NEO-RKM selbst.",
           "allow_price_lock": "Wärmepumpe bei hohen Strompreisen wie bei einer EVU-Sperre pausieren. Max. 2 h am Stück und 6 h pro Tag, mind. 60 min Pause, nicht unter -10 °C außen.",
-          "price_lock_switch": "Leer = Modbus-Register 149/150. Schalter an = Sperre. Anschluss nur durch eine Elektrofachkraft, siehe README."
+          "price_lock_switch": "Leer = Modbus-Register 149/150. Schalter an = Sperre. Anschluss nur durch eine Elektrofachkraft, siehe README.",
+          "grid_signal": "An = Netzbetreiber steuert die Wärmepumpe (§14a EnWG). Der EVU-Eingang wird automatisch erkannt."
         }
       }
     }
@@ -207,6 +209,9 @@
           "check": "Bitte prüfen"
         }
       },
+      "grid_lock_today": {
+        "name": "Netzbetreiber-Steuerung heute"
+      },
       "starts_24h": {
         "name": "Verdichterstarts 24 h"
       },
@@ -280,6 +285,9 @@
       },
       "demand_cooling": {
         "name": "Kühlen"
+      },
+      "grid_control": {
+        "name": "Netzbetreiber steuert"
       }
     },
     "select": {

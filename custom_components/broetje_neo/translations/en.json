@@ -29,6 +29,7 @@
           "heating_system": "Heating system",
           "room_sensors": "Room temperature sensors (for the efficiency check)",
           "expected_spf": "Planned seasonal performance factor (0 = unknown)",
+          "grid_signal": "Grid operator signal (optional, e.g. control box / SG-Ready via binary sensor)",
           "allow_write": "Allow writing settings",
           "allow_pv": "Allow PV / power control",
           "allow_price_lock": "Allow price lock",
@@ -42,7 +43,8 @@
           "allow_write": "Operating mode (not 'off') and setpoints within safe limits. Off = read-only.",
           "allow_pv": "PV power target (reg. 125) incl. watchdog. The NEO-RKM decides itself when and how strongly the heat pump runs.",
           "allow_price_lock": "Pause the heat pump during expensive hours like a utility lock. Max. 2 h per lock and 6 h per day, min. 60 min pause, not below -10 °C outdoor.",
-          "price_lock_switch": "Empty = Modbus registers 149/150. Switch on = lock. Wiring only by a qualified electrician, see README."
+          "price_lock_switch": "Empty = Modbus registers 149/150. Switch on = lock. Wiring only by a qualified electrician, see README.",
+          "grid_signal": "On = the grid operator controls the heat pump (§14a EnWG). The utility lock input is detected automatically."
         }
       }
     }
@@ -207,6 +209,9 @@
           "check": "Please check"
         }
       },
+      "grid_lock_today": {
+        "name": "Grid operator control today"
+      },
       "starts_24h": {
         "name": "Compressor starts 24 h"
       },
@@ -280,6 +285,9 @@
       },
       "demand_cooling": {
         "name": "Cooling"
+      },
+      "grid_control": {
+        "name": "Grid operator control"
       }
     },
     "select": {
