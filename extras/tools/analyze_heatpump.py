@@ -217,8 +217,11 @@ def monthly_counter(rows) -> dict[str, float]:
 
 def section_spf(r: Report, con, ent, since, until) -> None:
     r.h("Arbeitszahlen je Monat (Langzeitstatistik der Energiezähler, 1 kWh Auflösung)")
-    pairs = [("gesamt", "e_th_total", "e_el_total"), ("Heizen", "e_th_heat", "e_el_heat"),
-             ("WW", "e_th_dhw", "e_el_dhw")]
+    pairs = [
+        ("gesamt", "e_th_total", "e_el_total"),
+        ("Heizen", "e_th_heat", "e_el_heat"),
+        ("WW", "e_th_dhw", "e_el_dhw"),
+    ]
     data = {}
     for label, th, el in pairs:
         data[label] = (
@@ -243,8 +246,12 @@ def section_spf(r: Report, con, ent, since, until) -> None:
         r.p(f"  {m:<8} {th:>10.0f} {el:>10.0f} {az('gesamt'):>6} {az('Heizen'):>8} {az('WW'):>6}")
     if tot_el:
         r.p("")
-        r.rate("AZ Zeitraum", tot_th / tot_el, tot_th / tot_el >= 3.5,
-               "Richtwert L/W mit FBH >= 3,5; mit HK >= 3,0")
+        r.rate(
+            "AZ Zeitraum",
+            tot_th / tot_el,
+            tot_th / tot_el >= 3.5,
+            "Richtwert L/W mit FBH >= 3,5; mit HK >= 3,0",
+        )
 
 
 def section_cycling(r: Report, comp: Series, until: float) -> None:
@@ -263,13 +270,25 @@ def section_cycling(r: Report, comp: Series, until: float) -> None:
     runs = [x for v in per_day.values() for x in v]
     days = max(1, len(per_day))
     r.p("")
-    r.rate("Starts pro Tag (Ø)", len(runs) / days, len(runs) / days <= 12,
-           "Richtwert <= 10-12 bei Inverter-WP")
-    r.rate("Laufzeit pro Start (Median, min)", st.median(runs), st.median(runs) >= 20,
-           "Richtwert >= 20-30 min; kurz -> Hysterese/Pufferung prüfen")
+    r.rate(
+        "Starts pro Tag (Ø)",
+        len(runs) / days,
+        len(runs) / days <= 12,
+        "Richtwert <= 10-12 bei Inverter-WP",
+    )
+    r.rate(
+        "Laufzeit pro Start (Median, min)",
+        st.median(runs),
+        st.median(runs) >= 20,
+        "Richtwert >= 20-30 min; kurz -> Hysterese/Pufferung prüfen",
+    )
     short = sum(1 for x in runs if x < 10)
-    r.rate("Anteil Läufe < 10 min (%)", 100 * short / len(runs), short / len(runs) < 0.1,
-           "Kurztakter: Mindestlaufzeit, Volumenstrom, Heizkurve")
+    r.rate(
+        "Anteil Läufe < 10 min (%)",
+        100 * short / len(runs),
+        short / len(runs) < 0.1,
+        "Kurztakter: Mindestlaufzeit, Volumenstrom, Heizkurve",
+    )
 
 
 def section_defrost(r: Report, defrost: Series, t_out: StepLookup, until: float) -> None:
@@ -284,7 +303,9 @@ def section_defrost(r: Report, defrost: Series, t_out: StepLookup, until: float)
         if t is not None:
             by_bin[int((t // 2) * 2)].append((b - a) / 60)
     days = {day(a) for a, _ in iv}
-    r.p(f"  Abtauungen gesamt: {len(iv)} an {len(days)} Tagen, Ø Dauer {st.fmean([(b - a) / 60 for a, b in iv]):.1f} min")
+    r.p(
+        f"  Abtauungen gesamt: {len(iv)} an {len(days)} Tagen, Ø Dauer {st.fmean([(b - a) / 60 for a, b in iv]):.1f} min"
+    )
     r.p(f"  {'Außen °C':>9} {'Anzahl':>7} {'Ø min':>6}")
     for k in sorted(by_bin):
         r.p(f"  {k:>4}..{k + 2:<3} {len(by_bin[k]):>7} {st.fmean(by_bin[k]):>6.1f}")
@@ -330,28 +351,50 @@ def section_curve(r: Report, ent_series, comp: StepLookup, demand: StepLookup | 
     if fit:
         a, b = fit
         r.p(f"  Fit: VL = {a:.1f} {b:+.2f} * Außen  (Steilheit {-b:.2f})")
-        r.rate("VL bei -10 °C (extrapoliert)", a - 10 * b, a - 10 * b <= 35,
-               "FBH <= 35 °C, HK <= 45-50 °C; jedes K weniger ~2,5 % Strom")
-        r.rate("VL bei +15 °C (extrapoliert)", a + 15 * b, None, "Fußpunkt; > Raumsoll+5 K -> senken")
-    r.rate("Spreizung VL-RL (Median, K)", st.median(spreads), 3 <= st.median(spreads) <= 7,
-           "FBH 3-5 K, HK 5-7 K; groß -> Volumenstrom zu klein")
+        r.rate(
+            "VL bei -10 °C (extrapoliert)",
+            a - 10 * b,
+            a - 10 * b <= 35,
+            "FBH <= 35 °C, HK <= 45-50 °C; jedes K weniger ~2,5 % Strom",
+        )
+        r.rate(
+            "VL bei +15 °C (extrapoliert)", a + 15 * b, None, "Fußpunkt; > Raumsoll+5 K -> senken"
+        )
+    r.rate(
+        "Spreizung VL-RL (Median, K)",
+        st.median(spreads),
+        3 <= st.median(spreads) <= 7,
+        "FBH 3-5 K, HK 5-7 K; groß -> Volumenstrom zu klein",
+    )
     if superheat:
-        r.rate("Überhitzung (Median, K)", st.median(superheat), 3 <= st.median(superheat) <= 10,
-               f"p10 {pct(superheat, .1):.1f} / p90 {pct(superheat, .9):.1f}; typ. 4-8 K")
+        r.rate(
+            "Überhitzung (Median, K)",
+            st.median(superheat),
+            3 <= st.median(superheat) <= 10,
+            f"p10 {pct(superheat, 0.1):.1f} / p90 {pct(superheat, 0.9):.1f}; typ. 4-8 K",
+        )
     if lift:
-        r.rate("Temperaturhub Kond-Verd (Median, K)", st.median(lift), None,
-               "kleiner = effizienter")
+        r.rate(
+            "Temperaturhub Kond-Verd (Median, K)", st.median(lift), None, "kleiner = effizienter"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("db", help="Pfad zu home-assistant_v2.db (Kopie empfohlen)")
     ap.add_argument("--profile", choices=sorted(PROFILES), default="broetje_neo")
     ap.add_argument("--prefix", help="Entity-Präfix (Default je Profil)")
     ap.add_argument("--since", help="Startdatum YYYY-MM-DD (z.B. nach Fehlanschluss-Phase)")
     ap.add_argument("--until", help="Enddatum YYYY-MM-DD")
-    ap.add_argument("--map", action="append", default=[], metavar="ROLLE=ENTITY",
-                    help="einzelne Entität überschreiben, Rollen: " + ", ".join(PROFILES["broetje_neo"]))
+    ap.add_argument(
+        "--map",
+        action="append",
+        default=[],
+        metavar="ROLLE=ENTITY",
+        help="einzelne Entität überschreiben, Rollen: " + ", ".join(PROFILES["broetje_neo"]),
+    )
     args = ap.parse_args(argv)
 
     prefix = args.prefix or DEFAULT_PREFIX[args.profile]
@@ -361,7 +404,9 @@ def main(argv: list[str] | None = None) -> int:
         if k not in ent:
             ap.error(f"unbekannte Rolle {k}")
         ent[k] = v
-    since = datetime.fromisoformat(args.since).replace(tzinfo=UTC).timestamp() if args.since else 0.0
+    since = (
+        datetime.fromisoformat(args.since).replace(tzinfo=UTC).timestamp() if args.since else 0.0
+    )
     until = (
         (datetime.fromisoformat(args.until) + timedelta(days=1)).replace(tzinfo=UTC).timestamp()
         if args.until
@@ -369,17 +414,24 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     con = connect(args.db)
-    r = Report([f"Wärmepumpen-Auswertung  {datetime.now():%Y-%m-%d %H:%M}",
-                f"DB: {args.db}  Profil: {args.profile}  Präfix: {prefix}"])
+    r = Report(
+        [
+            f"Wärmepumpen-Auswertung  {datetime.now():%Y-%m-%d %H:%M}",
+            f"DB: {args.db}  Profil: {args.profile}  Präfix: {prefix}",
+        ]
+    )
     section_spf(r, con, ent, since, until)
 
-    series = {k: load_states(con, v, since, until) for k, v in ent.items()
-              if not k.startswith("e_")}
+    series = {
+        k: load_states(con, v, since, until) for k, v in ent.items() if not k.startswith("e_")
+    }
     if series["t_flow"]:
         first = series["t_flow"][0][0]
         r.p("")
-        r.p(f"Rohverlauf verfügbar ab {datetime.fromtimestamp(first):%Y-%m-%d %H:%M} "
-            "(Recorder purge_keep_days)")
+        r.p(
+            f"Rohverlauf verfügbar ab {datetime.fromtimestamp(first):%Y-%m-%d %H:%M} "
+            "(Recorder purge_keep_days)"
+        )
     section_cycling(r, series["compressor"], until)
     section_defrost(r, series["defrost"], StepLookup(numeric(series["t_out"])), until)
     demand = StepLookup(series["demand"]) if series["demand"] else None

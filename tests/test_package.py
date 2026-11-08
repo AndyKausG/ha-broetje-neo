@@ -26,7 +26,9 @@ TOOL = EXTRAS / "tools" / "analyze_heatpump.py"
 
 async def _setup_de(hass: HomeAssistant, entry: MockConfigEntry) -> None:
     hass.config.language = "de"
-    entry = MockConfigEntry(domain=entry.domain, data={**entry.data, "name": "Brötje NEO"})
+    entry = MockConfigEntry(
+        domain=entry.domain, data={**entry.data, "name": "Brötje NEO"}, options=entry.options
+    )
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()

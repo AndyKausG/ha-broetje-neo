@@ -99,6 +99,8 @@ def test_report(tmp_path: Path, capsys) -> None:
 
 
 def test_monthly_counter_dip() -> None:
-    rows = [(datetime(2026, 1, 1, h, tzinfo=UTC).timestamp(), None, v)
-            for h, v in enumerate([100, 101, 0, 102])]
+    rows = [
+        (datetime(2026, 1, 1, h, tzinfo=UTC).timestamp(), None, v)
+        for h, v in enumerate([100, 101, 0, 102])
+    ]
     assert analyze.monthly_counter(rows) == {"2026-01": 2}

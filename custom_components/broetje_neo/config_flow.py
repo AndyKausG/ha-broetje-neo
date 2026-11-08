@@ -19,11 +19,15 @@ from pymodbus.exceptions import ModbusException
 import voluptuous as vol
 
 from .const import (
+    CONF_ALLOW_PV,
+    CONF_ALLOW_WRITE,
     CONF_MODEL,
     CONF_PV_MAX_POWER,
     CONF_PV_WATCHDOG,
     CONF_SCAN_INTERVAL,
     CONF_UNIT_ID,
+    DEFAULT_ALLOW_PV,
+    DEFAULT_ALLOW_WRITE,
     DEFAULT_MODEL,
     DEFAULT_NAME,
     DEFAULT_PORT,
@@ -111,15 +115,24 @@ class BroetjeNeoConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class BroetjeNeoOptionsFlow(OptionsFlow):
-    """Options: polling interval and PV safety settings."""
+    """Options: write permissions, polling interval and PV safety settings."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Manage options."""
         if user_input is not None:
-            return self.async_create_entry(data={k: int(v) for k, v in user_input.items()})
+            data = {k: (v if isinstance(v, bool) else int(v)) for k, v in user_input.items()}
+            return self.async_create_entry(data=data)
         opts = self.config_entry.options
         schema = vol.Schema(
             {
+                vol.Required(
+                    CONF_ALLOW_WRITE,
+                    default=opts.get(CONF_ALLOW_WRITE, DEFAULT_ALLOW_WRITE),
+                ): selector.BooleanSelector(),
+                vol.Required(
+                    CONF_ALLOW_PV,
+                    default=opts.get(CONF_ALLOW_PV, DEFAULT_ALLOW_PV),
+                ): selector.BooleanSelector(),
                 vol.Required(
                     CONF_SCAN_INTERVAL,
                     default=opts.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),

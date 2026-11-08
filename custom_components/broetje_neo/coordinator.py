@@ -17,18 +17,24 @@ from pymodbus.client import AsyncModbusTcpClient
 from pymodbus.exceptions import ModbusException
 
 from .const import (
+    CONF_ALLOW_PV,
+    CONF_ALLOW_WRITE,
     CONF_PV_WATCHDOG,
     CONF_SCAN_INTERVAL,
     CONF_UNIT_ID,
+    DEFAULT_ALLOW_PV,
+    DEFAULT_ALLOW_WRITE,
     DEFAULT_PV_WATCHDOG,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_UNIT_ID,
     DOMAIN,
     MIN_WRITE_INTERVAL,
     MODBUS_TIMEOUT,
+    write_allowed,
 )
 from .registers import (
     PV_POWER,
+    PV_REGISTERS,
     READ_BLOCKS,
     Block,
     Register,
@@ -67,7 +73,12 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         self._unit = entry.data.get(CONF_UNIT_ID, DEFAULT_UNIT_ID)
         self._lock = asyncio.Lock()
         self._last_write: dict[int, float] = {}
-        self._pv_watchdog = entry.options.get(CONF_PV_WATCHDOG, DEFAULT_PV_WATCHDOG)
+        self.allow_write: bool = entry.options.get(CONF_ALLOW_WRITE, DEFAULT_ALLOW_WRITE)
+        self.allow_pv: bool = entry.options.get(CONF_ALLOW_PV, DEFAULT_ALLOW_PV)
+        # The watchdog writes too, so it only runs with PV control enabled.
+        self._pv_watchdog = (
+            entry.options.get(CONF_PV_WATCHDOG, DEFAULT_PV_WATCHDOG) if self.allow_pv else 0
+        )
         # monotonic time of the last explicit PV power write; None means
         # "never written in this HA run" -> stale values get reset.
         self._pv_last_set: float | None = None
@@ -141,7 +152,19 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         except HomeAssistantError as err:
             _LOGGER.error("PV watchdog reset failed: %s", err)
 
+    def _check_write_permission(self, reg: Register) -> None:
+        if reg.address in PV_REGISTERS:
+            if not self.allow_pv:
+                raise HomeAssistantError(
+                    f"PV control disabled in options, register {reg.address} not written"
+                )
+        elif not self.allow_write:
+            raise HomeAssistantError(
+                f"Write access disabled in options, register {reg.address} not written"
+            )
+
     async def _write_raw(self, reg: Register, word: int) -> None:
+        self._check_write_permission(reg)
         if reg.table is not Table.HOLDING:
             raise HomeAssistantError(f"register {reg.address} is read-only")
         last = self._last_write.get(reg.address)
@@ -193,6 +216,10 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
             self._client.close()
 
     # -------------------------------------------------------------- helpers
+    def entity_allowed(self, platform: str, key: str) -> bool:
+        """Return True if the entity may be created with the current options."""
+        return write_allowed(platform, key, self.allow_write, self.allow_pv)
+
     def value(self, reg: Register) -> float | int | None:
         """Return the decoded value of reg from the last poll."""
         if self.data is None:

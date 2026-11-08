@@ -44,8 +44,21 @@ Modbus TCP aktivieren, RKM neu starten.
 | Port    | 502          |                                                  |
 | Unit-ID | 1            |                                                  |
 
-Optionen: Abfrageintervall (Default 15 s), PV-Watchdog (Default 120 s, 0 = aus),
-maximale PV-Leistungsvorgabe (Default 6000 W).
+Optionen (Integration → Konfigurieren):
+
+| Option                           | Default | Wirkung |
+|----------------------------------|---------|---------|
+| Einstellungen schreiben erlauben | aus     | Betriebsarten, Sollwerte, Vorgaben/Overrides, Entstören |
+| PV-/Leistungssteuerung erlauben  | aus     | PV-Leistung (Reg. 125), ext. Drehzahlanforderung/-vorgabe (117/126), PV-Watchdog |
+| Abfrageintervall                 | 15 s    | 5–300 s |
+| PV-Watchdog                      | 120 s   | 0 = aus; wirkt nur mit PV-Steuerung |
+| Max. PV-Leistungsvorgabe         | 6000 W  | Obergrenze der Number-Entität |
+
+Nach der Ersteinrichtung ist die Integration **nur lesend**: Es gibt keine
+schreibenden Entitäten, und der Coordinator lehnt jeden Schreibzugriff ab, auch
+den PV-Watchdog. Beide Bereiche lassen sich unabhängig voneinander freigeben.
+Wird eine Freigabe wieder entzogen, entfernt die Integration die betroffenen
+Entitäten.
 
 ## Entitäten (Auszug)
 
@@ -76,6 +89,10 @@ Einschaltverzögerung, Mindestlaufzeit und Max-Begrenzung einstellen. HA schreib
 dann nur den verfügbaren Überschuss in W nach `number.brotje_neo_pv_leistung`
 (Reg. 125). Start, Sollwertanhebung (WW-Max, HZ-Offset) und Modulation regelt
 das RKM.
+
+Voraussetzung in HA: Option "PV-/Leistungssteuerung erlauben" aktiv. Ohne sie
+gibt es `number.brotje_neo_pv_leistung` nicht, und die Package-Automation bleibt
+wirkungslos.
 
 Schutzmechanismen:
 1. Freigabe-Schalter im Package (`input_boolean.wpa_pv_vorgabe_freigabe`, Default aus)
@@ -117,12 +134,26 @@ bisherigen `ha_heliotherm`-Integration auswerten. Die Monats-AZ kommt aus der
 Langzeitstatistik der Energiezähler. Takten, Heizkurve und Kältekreis gehen nur
 über den Rohverlauf (Recorder `purge_keep_days`, Default 10 Tage).
 
-## Umstieg von ha_heliotherm
+## Umstieg von ha_heliotherm / Parallelbetrieb
 
-Beide Integrationen können zum Vergleich parallel laufen, sofern das RKM mehrere
-Modbus-Clients zulässt. Bei Verbindungsabbrüchen eine von beiden deaktivieren.
-Die Entity-IDs sind neu, die Statistik beginnt neu. Die alte Historie bleibt in
-der Datenbank und kann mit dem Skript (Profil `heliotherm`) ausgewertet werden.
+Beide Integrationen können parallel laufen: eigene Domains, eigene Geräte, eigene
+Entity-IDs, kein Konflikt in HA. Empfohlener Ablauf:
+
+1. `broetje_neo` mit den Standardoptionen einrichten (nur lesen) und das
+   Abfrageintervall auf 30 s stellen, damit das RKM weniger Last hat.
+2. Einige Tage die Werte vergleichen. Steuern weiterhin nur über `ha_heliotherm`.
+3. Danach die Schreibfreigaben in `broetje_neo` setzen und `ha_heliotherm`
+   deaktivieren oder entfernen.
+
+Zu beachten:
+- Ob das NEO-RKM zwei Modbus-TCP-Clients gleichzeitig bedient, ist nicht
+  dokumentiert. Bei Timeouts oder `unavailable` in einer der beiden Integrationen
+  das Intervall erhöhen oder eine Integration deaktivieren.
+- Nicht in beiden Integrationen gleichzeitig steuern, sonst überschreiben sich
+  die Sollwerte gegenseitig.
+- Im Energie-Dashboard nur eine Quelle eintragen, sonst wird doppelt gezählt.
+- Die Statistik beginnt mit den neuen Entity-IDs neu. Die alte Historie bleibt in
+  der Datenbank und kann mit dem Skript (Profil `heliotherm`) ausgewertet werden.
 
 ## Entwicklung
 

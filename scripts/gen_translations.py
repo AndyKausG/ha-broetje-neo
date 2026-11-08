@@ -162,6 +162,10 @@ TEXT = {
         "cannot_connect": "Failed to connect or read register 10.",
         "already_configured": "Device is already configured",
         "opt_title": "Options",
+        "allow_write": "Allow writing settings",
+        "allow_write_desc": "Operating modes, setpoints, overrides, fault reset. Off = read-only.",
+        "allow_pv": "Allow PV / power control",
+        "allow_pv_desc": "PV power target (reg. 125), external speed request/setpoint (117/126) and PV watchdog.",
         "scan_interval": "Polling interval (s)",
         "pv_watchdog": "PV watchdog (s, 0 = off)",
         "pv_watchdog_desc": "Register 125 (PV power) is reset to 0 if not refreshed within this time, on HA start and on stop.",
@@ -178,6 +182,10 @@ TEXT = {
         "cannot_connect": "Verbindung fehlgeschlagen oder Register 10 nicht lesbar.",
         "already_configured": "Gerät ist bereits eingerichtet",
         "opt_title": "Optionen",
+        "allow_write": "Einstellungen schreiben erlauben",
+        "allow_write_desc": "Betriebsarten, Sollwerte, Vorgaben, Entstören. Aus = nur lesen.",
+        "allow_pv": "PV-/Leistungssteuerung erlauben",
+        "allow_pv_desc": "PV-Leistungsvorgabe (Reg. 125), ext. Drehzahlanforderung/-vorgabe (117/126) und PV-Watchdog.",
         "scan_interval": "Abfrageintervall (s)",
         "pv_watchdog": "PV-Watchdog (s, 0 = aus)",
         "pv_watchdog_desc": "Register 125 (PV-Leistung) wird auf 0 gesetzt, wenn es nicht innerhalb dieser Zeit erneuert wird, sowie beim Start und Stopp von HA.",
@@ -218,7 +226,20 @@ def build(lang: str) -> dict:
                 "init": {
                     "title": t["opt_title"],
                     "description": t["pv_watchdog_desc"],
-                    "data": {k: t[k] for k in ("scan_interval", "pv_watchdog", "pv_max_power")},
+                    "data": {
+                        k: t[k]
+                        for k in (
+                            "allow_write",
+                            "allow_pv",
+                            "scan_interval",
+                            "pv_watchdog",
+                            "pv_max_power",
+                        )
+                    },
+                    "data_description": {
+                        "allow_write": t["allow_write_desc"],
+                        "allow_pv": t["allow_pv_desc"],
+                    },
                 }
             }
         },

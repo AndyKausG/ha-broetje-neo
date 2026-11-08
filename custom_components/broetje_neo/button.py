@@ -22,7 +22,9 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     """Set up buttons."""
-    async_add_entities([BroetjeNeoResetButton(entry.runtime_data, RESET_FAULT)])
+    coordinator = entry.runtime_data
+    if coordinator.entity_allowed("button", RESET_FAULT.key):
+        async_add_entities([BroetjeNeoResetButton(coordinator, RESET_FAULT)])
 
 
 class BroetjeNeoResetButton(BroetjeNeoEntity, ButtonEntity):

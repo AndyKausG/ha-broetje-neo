@@ -26,9 +26,15 @@
         "title": "Options",
         "description": "Register 125 (PV power) is reset to 0 if not refreshed within this time, on HA start and on stop.",
         "data": {
+          "allow_write": "Allow writing settings",
+          "allow_pv": "Allow PV / power control",
           "scan_interval": "Polling interval (s)",
           "pv_watchdog": "PV watchdog (s, 0 = off)",
           "pv_max_power": "Maximum PV power target (W)"
+        },
+        "data_description": {
+          "allow_write": "Operating modes, setpoints, overrides, fault reset. Off = read-only.",
+          "allow_pv": "PV power target (reg. 125), external speed request/setpoint (117/126) and PV watchdog."
         }
       }
     }

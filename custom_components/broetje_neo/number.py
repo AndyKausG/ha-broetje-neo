@@ -105,7 +105,11 @@ async def async_setup_entry(
     descriptions = [
         replace(d, native_max_value=pv_max) if d.key == "pv_power" else d for d in NUMBERS
     ]
-    async_add_entities(BroetjeNeoNumber(coordinator, d) for d in descriptions)
+    async_add_entities(
+        BroetjeNeoNumber(coordinator, d)
+        for d in descriptions
+        if coordinator.entity_allowed("number", d.key)
+    )
 
 
 class BroetjeNeoNumber(BroetjeNeoEntity, NumberEntity):

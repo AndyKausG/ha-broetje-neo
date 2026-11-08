@@ -53,7 +53,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up selects."""
     coordinator = entry.runtime_data
-    async_add_entities(BroetjeNeoSelect(coordinator, d) for d in SELECTS)
+    async_add_entities(
+        BroetjeNeoSelect(coordinator, d)
+        for d in SELECTS
+        if coordinator.entity_allowed("select", d.key)
+    )
 
 
 class BroetjeNeoSelect(BroetjeNeoEntity, SelectEntity):

@@ -8,13 +8,20 @@ from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import STATE_OFF, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
+import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
 )
 
-from custom_components.broetje_neo.const import CONF_PV_WATCHDOG
+from custom_components.broetje_neo import registers as r
+from custom_components.broetje_neo.const import (
+    CONF_ALLOW_PV,
+    CONF_ALLOW_WRITE,
+    CONF_PV_WATCHDOG,
+)
 
 
 async def _setup(hass: HomeAssistant, entry: MockConfigEntry) -> None:
@@ -97,7 +104,7 @@ async def test_pv_watchdog(
     config_entry = MockConfigEntry(
         domain=config_entry.domain,
         data=config_entry.data,
-        options={CONF_PV_WATCHDOG: 60},
+        options={CONF_PV_WATCHDOG: 60, CONF_ALLOW_WRITE: True, CONF_ALLOW_PV: True},
         unique_id="x",
     )
     await _setup(hass, config_entry)
@@ -174,3 +181,73 @@ async def test_setup_retry_on_failure(hass: HomeAssistant, fake_client, config_e
     config_entry.add_to_hass(hass)
     await hass.config_entries.async_setup(config_entry.entry_id)
     assert config_entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_readonly_default(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    """Default options: no write entities, no writes at all (watchdog included)."""
+    fake_client.holding[125] = 2000  # stale value must NOT be touched
+    await _setup(hass, readonly_entry)
+    assert hass.states.get("sensor.wp_outdoor_temperature").state == "-3.5"
+    for eid in (
+        "number.wp_room_setpoint",
+        "number.wp_pv_power",
+        "select.wp_operating_mode",
+        "button.wp_reset_fault",
+    ):
+        assert hass.states.get(eid) is None, eid
+    coordinator = readonly_entry.runtime_data
+    with pytest.raises(HomeAssistantError):
+        await coordinator.async_write(r.ROOM_SETPOINT, 22)
+    with pytest.raises(HomeAssistantError):
+        await coordinator.async_write(r.PV_POWER, 1000)
+    assert await hass.config_entries.async_unload(readonly_entry.entry_id)
+    assert all(not c.writes for c in fake_client.instances)
+    assert fake_client.holding[125] == 2000
+
+
+async def test_write_without_pv(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    """Settings writable, PV control off."""
+    entry = MockConfigEntry(
+        domain=readonly_entry.domain,
+        data=readonly_entry.data,
+        options={CONF_ALLOW_WRITE: True, CONF_ALLOW_PV: False},
+        unique_id="y",
+    )
+    fake_client.holding[125] = 2000
+    await _setup(hass, entry)
+    assert hass.states.get("number.wp_room_setpoint") is not None
+    assert hass.states.get("select.wp_operating_mode") is not None
+    assert hass.states.get("number.wp_pv_power") is None
+    coordinator = entry.runtime_data
+    with pytest.raises(HomeAssistantError):
+        await coordinator.async_write(r.PV_POWER, 1000)
+    assert fake_client.holding[125] == 2000  # watchdog inactive
+
+
+async def test_pv_without_write(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    """PV control on, settings read-only."""
+    entry = MockConfigEntry(
+        domain=readonly_entry.domain,
+        data=readonly_entry.data,
+        options={CONF_ALLOW_WRITE: False, CONF_ALLOW_PV: True},
+        unique_id="z",
+    )
+    await _setup(hass, entry)
+    assert hass.states.get("number.wp_pv_power") is not None
+    assert hass.states.get("number.wp_room_setpoint") is None
+    assert hass.states.get("select.wp_operating_mode") is None
+
+
+async def test_disabling_write_removes_entities(
+    hass: HomeAssistant, fake_client, config_entry
+) -> None:
+    await _setup(hass, config_entry)
+    reg = er.async_get(hass)
+    assert reg.async_get("number.wp_room_setpoint") is not None
+    hass.config_entries.async_update_entry(
+        config_entry, options={CONF_ALLOW_WRITE: False, CONF_ALLOW_PV: False}
+    )
+    await hass.async_block_till_done()
+    assert reg.async_get("number.wp_room_setpoint") is None
+    assert reg.async_get("number.wp_pv_power") is None
+    assert reg.async_get("sensor.wp_outdoor_temperature") is not None

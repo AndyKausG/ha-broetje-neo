@@ -7,6 +7,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 
 from custom_components.broetje_neo.const import (
+    CONF_ALLOW_PV,
+    CONF_ALLOW_WRITE,
     CONF_PV_MAX_POWER,
     CONF_PV_WATCHDOG,
     CONF_SCAN_INTERVAL,
@@ -43,7 +45,15 @@ async def test_options_flow(hass: HomeAssistant, fake_client, config_entry) -> N
     result = await hass.config_entries.options.async_init(config_entry.entry_id)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {CONF_SCAN_INTERVAL: 30, CONF_PV_WATCHDOG: 0, CONF_PV_MAX_POWER: 5000},
+        {
+            CONF_ALLOW_WRITE: True,
+            CONF_ALLOW_PV: False,
+            CONF_SCAN_INTERVAL: 30,
+            CONF_PV_WATCHDOG: 0,
+            CONF_PV_MAX_POWER: 5000,
+        },
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert config_entry.options[CONF_SCAN_INTERVAL] == 30
+    assert config_entry.options[CONF_ALLOW_WRITE] is True
+    assert config_entry.options[CONF_ALLOW_PV] is False

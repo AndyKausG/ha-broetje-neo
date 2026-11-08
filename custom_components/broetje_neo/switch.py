@@ -61,7 +61,11 @@ async def async_setup_entry(
 ) -> None:
     """Set up switches."""
     coordinator = entry.runtime_data
-    async_add_entities(BroetjeNeoSwitch(coordinator, d) for d in SWITCHES)
+    async_add_entities(
+        BroetjeNeoSwitch(coordinator, d)
+        for d in SWITCHES
+        if coordinator.entity_allowed("switch", d.key)
+    )
 
 
 class BroetjeNeoSwitch(BroetjeNeoEntity, SwitchEntity):

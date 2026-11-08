@@ -26,9 +26,15 @@
         "title": "Optionen",
         "description": "Register 125 (PV-Leistung) wird auf 0 gesetzt, wenn es nicht innerhalb dieser Zeit erneuert wird, sowie beim Start und Stopp von HA.",
         "data": {
+          "allow_write": "Einstellungen schreiben erlauben",
+          "allow_pv": "PV-/Leistungssteuerung erlauben",
           "scan_interval": "Abfrageintervall (s)",
           "pv_watchdog": "PV-Watchdog (s, 0 = aus)",
           "pv_max_power": "Maximale PV-Leistungsvorgabe (W)"
+        },
+        "data_description": {
+          "allow_write": "Betriebsarten, Sollwerte, Vorgaben, Entstören. Aus = nur lesen.",
+          "allow_pv": "PV-Leistungsvorgabe (Reg. 125), ext. Drehzahlanforderung/-vorgabe (117/126) und PV-Watchdog."
         }
       }
     }
