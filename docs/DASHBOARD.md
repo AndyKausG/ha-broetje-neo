@@ -29,8 +29,15 @@ Recorder: Das 30-Tage-Diagramm liest die **Langzeitstatistik** (Tagesmaximum der
 „heute“-Laufzeiten, Tagesmittel Außentemperatur). Es braucht daher kein
 `purge_keep_days` > 10, füllt sich aber erst ab Installation des Packages.
 
-Dashboard anlegen: *Einstellungen → Dashboards → Dashboard hinzufügen → Neu von
-Grund auf → Bearbeiten → ⋮ → Rohkonfigurationseditor*, Datei einfügen.
+Dashboard anlegen (die Datei ist ein komplettes Dashboard, **keine Karte**; im Dialog
+„Karte anpassen“ kommt „No card type configured“):
+
+1. *Einstellungen → Dashboards → Dashboard hinzufügen → Neu von Grund auf*
+2. Dashboard öffnen → Stift (Bearbeiten) → ⋮ → *Rohkonfigurationseditor*
+3. Gesamten Inhalt durch die Datei ersetzen → Speichern
+
+Kacheln mit „Entität nicht gefunden“ bei `wpd_*` / `wpa_*`: Packages nicht geladen.
+Prüfen unter *Entwicklerwerkzeuge → YAML → Konfiguration prüfen*, danach HA neu starten.
 
 Heizgrenze: über Modbus nicht lesbar. Der Effizienz-Check lernt sie aus dem Betrieb
 (`sensor.brotje_neo_heizgrenze_beobachtet`, siehe `docs/TECHNIK.md` 5.2). Optional zum
