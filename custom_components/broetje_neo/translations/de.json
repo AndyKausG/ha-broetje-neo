@@ -290,6 +290,9 @@
       "room_avg_7d": {
         "name": "Raumtemperatur 7 Tage"
       },
+      "heating_limit_observed": {
+        "name": "Heizgrenze beobachtet"
+      },
       "spf_30d": {
         "name": "Arbeitszahl 30 Tage"
       },

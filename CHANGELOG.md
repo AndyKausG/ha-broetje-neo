@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.5.0] - 2026-11-08
+
+- New sensor "Heating limit observed" (efficiency check, read-only). The heating limit is not available via Modbus, so it is learned from operation: the delayed outdoor temperature at each start of a heating demand is kept for 60 days; the highest value (from 3 starts) becomes a candidate and is confirmed once at least 6 hours at 1 K above it passed without heating demand in the last 14 days. The last confirmed value is kept through winter and follows a change on the controller in the next transition period. Attributes: candidate, confirmed_at, starts_60d, warm_hours_without_demand_14d.
+- Dashboard: tile and 30-day chart line for the learned heating limit; the manual input is kept for comparison.
+
 ## [0.4.0] - 2026-11-08
 
 - New wall tablet dashboard `extras/dashboard/broetje-neo-dashboard.yaml` (sections view) for plants with a buffer and mixing circuit 1: status, separate view of heating demand, heating circuit pump, buffer charging and compressor, efficiency tiles, run times, 30-day transition-period chart (daily run times vs. mean outdoor temperature and heating limit), 24 h chart and an animated plant schema that only moves while pumps, fan or compressor run. Needs `apexcharts-card` and `button-card` from HACS.

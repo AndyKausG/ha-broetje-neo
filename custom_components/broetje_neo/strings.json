@@ -290,6 +290,9 @@
       "room_avg_7d": {
         "name": "Room temperature 7 days"
       },
+      "heating_limit_observed": {
+        "name": "Heating limit observed"
+      },
       "spf_30d": {
         "name": "SPF 30 days"
       },

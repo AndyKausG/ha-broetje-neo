@@ -369,3 +369,92 @@ def test_old_stored_data_without_mkr_fields() -> None:
     tr2 = a.Tracker.from_dict(data)
     assert all(b.ms_n == 0 for b in tr2.buckets.values())
     assert tr2.figures(now)["mkr_set_0"] is None
+
+
+# --- observed heating limit -------------------------------------------------
+def _feed_limit(tr, start: float, days: int, t_fn, demand_fn, step: int = 300) -> float:
+    """Feed samples every `step` s; t_fn(hour_of_day, ts) -> outdoor (delayed)."""
+    ts = start
+    for i in range(days * DAY_S // step):
+        ts = start + i * step
+        t = t_fn((ts % DAY_S) / 3600, ts)
+        tr.feed(
+            a.Sample(ts=ts, t_out=t, t_out_delayed=t, demand=demand_fn(t, ts), compressor=False)
+        )
+    return ts + step
+
+
+DAY_S = 86400
+
+
+def _autumn(h: float, ts: float) -> float:
+    # 8 °C at night, 18 °C in the afternoon (triangle)
+    return 8 + 10 * (1 - abs(h - 15) / 15) if h <= 15 else 18 - 10 * (h - 15) / 9
+
+
+def _winter(h: float, ts: float) -> float:
+    return -5 + 10 * (1 - abs(h - 12) / 12)
+
+
+def _limit14(t: float, ts: float) -> str:
+    return "heating" if t < 14 else "none"
+
+
+def _cycling(t: float, ts: float) -> str:
+    return "heating" if (ts // 2700) % 2 == 0 else "none"
+
+
+def test_heating_limit_learned_and_confirmed() -> None:
+    tr = a.Tracker()
+    now = _feed_limit(tr, T0, 5, _autumn, _limit14)
+    fig = tr.figures(now)
+    assert fig["heating_limit_candidate"] is not None
+    assert 13.5 <= fig["heating_limit_candidate"] <= 14.0
+    # afternoons above 15 °C without demand confirm it
+    assert fig["heating_limit_observed"] == fig["heating_limit_candidate"]
+    assert fig["heating_limit_starts_60d"] >= 3
+    detail = tr.heat_limit_detail(now)
+    assert detail["confirmed_at"] is not None
+    assert detail["warm_hours_without_demand_14d"] >= 6
+
+
+def test_heating_limit_kept_through_winter() -> None:
+    tr = a.Tracker()
+    now = _feed_limit(tr, T0, 5, _autumn, _limit14)
+    learned = tr.figures(now)["heating_limit_observed"]
+    # 70 cold days: demand cycles at all temperatures, starts only below +5 °C
+    now = _feed_limit(tr, now, 70, _winter, _cycling, step=600)
+    fig = tr.figures(now)
+    assert fig["heating_limit_candidate"] <= 5
+    assert fig["heating_limit_observed"] == learned
+
+
+def test_heating_limit_relearned_after_change() -> None:
+    tr = a.Tracker()
+    now = _feed_limit(tr, T0, 5, _autumn, _limit14)
+    # limit lowered to 12 °C; after the 60-day window the old starts are gone
+    now = _feed_limit(tr, now, 65, _autumn, lambda t, ts: "heating" if t < 12 else "none")
+    fig = tr.figures(now)
+    assert 11.5 <= fig["heating_limit_observed"] <= 12.0
+
+
+def test_heating_limit_needs_confirmation() -> None:
+    tr = a.Tracker()
+    now = _feed_limit(tr, T0, 5, _winter, _cycling)
+    fig = tr.figures(now)
+    assert fig["heating_limit_candidate"] is not None
+    assert fig["heating_limit_observed"] is None
+
+
+def test_heating_limit_persisted() -> None:
+    tr = a.Tracker()
+    now = _feed_limit(tr, T0, 5, _autumn, _limit14)
+    tr2 = a.Tracker.from_dict(tr.to_dict())
+    assert tr2.figures(now)["heating_limit_observed"] == tr.figures(now)["heating_limit_observed"]
+    assert tr2.heat_starts == tr.heat_starts
+    # data stored by older versions has no heating limit fields
+    old = tr.to_dict()
+    del old["heat_starts"], old["heat_limit"]
+    for b in old["buckets"]:
+        del b["t_del_sum"], b["t_del_n"], b["demand_heat_n"]
+    assert a.Tracker.from_dict(old).figures(now)["heating_limit_observed"] is None

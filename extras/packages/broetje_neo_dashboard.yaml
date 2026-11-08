@@ -30,9 +30,9 @@
 #   sensor.wpd_{heizanforderung,verdichterlaufzeit,verdichterlaufzeit_heizen}_{heute,gestern,7_tage},
 #   input_number.wpd_heizgrenze
 #
-# Die Heizgrenze ist über Modbus nicht lesbar. Wert vom Bedienteil hier
-# eintragen (input_number.wpd_heizgrenze, "initial"), sie dient nur als
-# Linie im 30-Tage-Diagramm.
+# Die Heizgrenze ist über Modbus nicht lesbar. Die Integration lernt sie aus
+# dem Betrieb (sensor.brotje_neo_heizgrenze_beobachtet). Optional zum Vergleich
+# den Wert vom Bedienteil hier eintragen (input_number.wpd_heizgrenze, "initial").
 # ============================================================================
 
 template:

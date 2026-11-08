@@ -27,6 +27,11 @@ DAY = 24 * HOUR
 KEEP_S = 14 * DAY
 MAX_DT = 120  # s; longer gaps (outages) are not counted as runtime
 MIN_DAYS = 3  # data needed before advice is given
+# Observed heating limit: outdoor temperature (delayed) at heating demand starts.
+LIMIT_KEEP_S = 60 * DAY  # demand starts kept for the estimate
+LIMIT_MIN_STARTS = 3  # starts needed for a candidate
+LIMIT_MARGIN = 1.0  # K above the candidate ...
+LIMIT_CONFIRM_H = 6  # ... for this many hours without heating demand (last 14 days)
 
 # max. flow/return spread in heating mode (rule of thumb)
 SPREAD_LIMITS = {"underfloor": 6.0, "radiator": 8.0, "mixed": 7.0}
@@ -94,6 +99,9 @@ class Bucket:
     ms_n: int = 0
     dev_sum: float = 0.0  # room - room setpoint
     dev_n: int = 0
+    t_del_sum: float = 0.0  # outdoor delayed (fallback: outdoor)
+    t_del_n: int = 0
+    demand_heat_n: int = 0  # samples with heating demand (compressor on or off)
     # per room sensor: [temp_sum, temp_n, dev_sum, dev_n]
     rooms: dict[str, list[float]] = field(default_factory=dict)
 
@@ -126,6 +134,12 @@ class Tracker:
     _last_comp: bool | None = None
     _run_start: float | None = None
     _last_defrost: bool | None = None
+    # (ts, outdoor delayed, outdoor) at each start of a heating demand
+    heat_starts: list[tuple[float, float, float | None]] = field(default_factory=list)
+    # last confirmed observed heating limit: {"value": °C, "ts": epoch}
+    heat_limit: dict[str, float] | None = None
+    _last_demand_heat: bool | None = None
+    _limit_hour: int | None = None
 
     # ----------------------------------------------------------- feeding
     def feed(self, s: Sample) -> None:
@@ -190,9 +204,46 @@ class Tracker:
             b.ms_sum += s.mkr_set
             b.ms_x_sum += x
             b.ms_n += 1
+        if x is not None:
+            b.t_del_sum += x
+            b.t_del_n += 1
+        if s.demand is not None:
+            demand_heat = s.demand == "heating"
+            if demand_heat:
+                b.demand_heat_n += 1
+                if self._last_demand_heat is False and x is not None:
+                    self.heat_starts.append((s.ts, x, s.t_out))
+            self._last_demand_heat = demand_heat
         self._snapshot_counters(s)
         self._last_ts = s.ts
         self._prune(s.ts)
+        hour = int(s.ts // HOUR)
+        if hour != self._limit_hour:  # hourly is enough
+            self._limit_hour = hour
+            self._update_heat_limit(s.ts)
+
+    def _heat_limit_candidate(self, now: float) -> float | None:
+        starts = [x for ts, x, _ in self.heat_starts if ts >= now - LIMIT_KEEP_S]
+        return round(max(starts), 1) if len(starts) >= LIMIT_MIN_STARTS else None
+
+    def _warm_hours_without_demand(self, now: float, above: float) -> int:
+        return sum(
+            1
+            for b in self._window(now, KEEP_S)
+            if b.t_del_n and b.demand_heat_n == 0 and b.t_del_sum / b.t_del_n >= above
+        )
+
+    def _update_heat_limit(self, now: float) -> None:
+        """Confirm the candidate once warmer hours passed without heating demand.
+
+        A confirmed value is kept (also through winter, when demand only starts
+        at low temperatures) until a new candidate is confirmed.
+        """
+        cand = self._heat_limit_candidate(now)
+        if cand is None or (self.heat_limit and self.heat_limit.get("value") == cand):
+            return
+        if self._warm_hours_without_demand(now, cand + LIMIT_MARGIN) >= LIMIT_CONFIRM_H:
+            self.heat_limit = {"value": cand, "ts": now}
 
     def _snapshot_counters(self, s: Sample) -> None:
         values = {
@@ -210,6 +261,7 @@ class Tracker:
         for h in [h for h in self.buckets if h < h_min]:
             del self.buckets[h]
         self.runs = [r for r in self.runs if r[0] >= now - KEEP_S]
+        self.heat_starts = [h for h in self.heat_starts if h[0] >= now - LIMIT_KEEP_S]
         d_min = int((now - 40 * DAY) // DAY)
         for d in [d for d in self.counters if int(d) < d_min]:
             del self.counters[d]
@@ -221,6 +273,8 @@ class Tracker:
             "runs": self.runs,
             "counters": self.counters,
             "first_ts": self.first_ts,
+            "heat_starts": self.heat_starts,
+            "heat_limit": self.heat_limit,
         }
 
     @classmethod
@@ -234,6 +288,8 @@ class Tracker:
         t.runs = [tuple(r) for r in data.get("runs", [])]
         t.counters = data.get("counters", {})
         t.first_ts = data.get("first_ts")
+        t.heat_starts = [tuple(h) for h in data.get("heat_starts", [])]
+        t.heat_limit = data.get("heat_limit")
         return t
 
     # ---------------------------------------------------------- figures
@@ -287,7 +343,27 @@ class Tracker:
         fig |= self._curve(now, "rs", "rl_set", with_meta=True)
         fig |= self._curve(now, "ms", "mkr_set")
         fig |= self._spf(now)
+        fig["heating_limit_observed"] = self.heat_limit["value"] if self.heat_limit else None
+        fig["heating_limit_candidate"] = self._heat_limit_candidate(now)
+        fig["heating_limit_starts_60d"] = float(
+            sum(1 for h in self.heat_starts if h[0] >= now - LIMIT_KEEP_S)
+        )
         return fig
+
+    def heat_limit_detail(self, now: float) -> dict[str, Any]:
+        """Attributes for the observed heating limit sensor."""
+        cand = self._heat_limit_candidate(now)
+        return {
+            "candidate": cand,
+            "confirmed_at": self.heat_limit.get("ts") if self.heat_limit else None,
+            "starts_60d": sum(1 for h in self.heat_starts if h[0] >= now - LIMIT_KEEP_S),
+            "warm_hours_without_demand_14d": (
+                self._warm_hours_without_demand(now, cand + LIMIT_MARGIN)
+                if cand is not None
+                else None
+            ),
+            "basis": "Außentemperatur verzögert beim Start einer Heizanforderung",
+        }
 
     def room_detail(self, now: float) -> list[dict[str, Any]]:
         """Per room sensor: 7-day mean, deviation, deviation in cold/mild hours."""

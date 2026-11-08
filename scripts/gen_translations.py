@@ -132,6 +132,7 @@ ENTITIES: dict[str, dict[str, tuple[str, str]]] = {
         "room_spread_7d": ("Room temperature spread 7 days", "Raum Unterschied 7 Tage"),
         "heating_spread_7d": ("Heating spread 7 days", "Spreizung Heizen 7 Tage"),
         "room_avg_7d": ("Room temperature 7 days", "Raumtemperatur 7 Tage"),
+        "heating_limit_observed": ("Heating limit observed", "Heizgrenze beobachtet"),
         "spf_30d": ("SPF 30 days", "Arbeitszahl 30 Tage"),
         "spf_heating_30d": ("SPF heating 30 days", "Arbeitszahl Heizen 30 Tage"),
         "spf_dhw_30d": ("SPF DHW 30 days", "Arbeitszahl Warmwasser 30 Tage"),

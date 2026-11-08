@@ -32,8 +32,10 @@ Recorder: Das 30-Tage-Diagramm liest die **Langzeitstatistik** (Tagesmaximum der
 Dashboard anlegen: *Einstellungen → Dashboards → Dashboard hinzufügen → Neu von
 Grund auf → Bearbeiten → ⋮ → Rohkonfigurationseditor*, Datei einfügen.
 
-Heizgrenze: über Modbus nicht lesbar. Wert vom Bedienteil in
-`input_number.wpd_heizgrenze` (`initial`) eintragen; nur Linie im Diagramm.
+Heizgrenze: über Modbus nicht lesbar. Der Effizienz-Check lernt sie aus dem Betrieb
+(`sensor.brotje_neo_heizgrenze_beobachtet`, siehe `docs/TECHNIK.md` 5.2). Optional zum
+Vergleich den Wert vom Bedienteil in `input_number.wpd_heizgrenze` (`initial`) eintragen.
+Beide erscheinen als Linie im 30-Tage-Diagramm.
 
 ## Status-Logik (`sensor.wpd_status`)
 

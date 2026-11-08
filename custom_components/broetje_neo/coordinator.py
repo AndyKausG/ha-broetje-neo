@@ -138,6 +138,7 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         self.tracker = advisor.Tracker()
         self._store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.advisor")
         self.figures: dict[str, float | None] = {}
+        self.heat_limit_detail: dict[str, Any] = {}
         self.hints: list[advisor.Hint] = []
         self.circuit_setting: str = opts.get(CONF_HEATING_CIRCUIT, DEFAULT_HEATING_CIRCUIT)
         self.room_grouping: str = opts.get(CONF_ROOM_GROUPING, DEFAULT_ROOM_GROUPING)
@@ -310,6 +311,7 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         self._store.async_delay_save(self.tracker.to_dict, 300)
         self.data_days = round(self.tracker.data_days(now), 1)
         self.figures = self.tracker.figures(now)
+        self.heat_limit_detail = self.tracker.heat_limit_detail(now)
         ctx = advisor.Context(
             heating_system=self.heating_system,
             room_setpoint=room_set,

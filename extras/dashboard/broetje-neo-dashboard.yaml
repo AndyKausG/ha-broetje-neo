@@ -32,7 +32,9 @@
 #   Abtauen                binary_sensor.brotje_neo_abtauen           R27
 #
 # Nicht lieferbar (NEO-RKM): Mischer-Vorlauf/-Rücklauf Ist, Mischerpumpe,
-# Mischerstellung, Heizkurve, Heizgrenze (-> input_number.wpd_heizgrenze).
+# Mischerstellung, Heizkurve, Heizgrenze. Die Heizgrenze lernt der Effizienz-Check
+# (sensor.brotje_neo_heizgrenze_beobachtet); optional Vergleich mit dem Wert vom
+# Bedienteil (input_number.wpd_heizgrenze).
 # ============================================================================
 
 title: Wärmepumpe
@@ -202,6 +204,10 @@ views:
           - type: tile
             entity: sensor.brotje_neo_effizienz_check
             name: Effizienz-Check
+          - type: tile
+            entity: sensor.brotje_neo_heizgrenze_beobachtet
+            name: Heizgrenze (gelernt)
+            color: grey
 
       # --------------------------------------------------------- Laufzeiten
       - type: grid
@@ -535,8 +541,18 @@ views:
                 color: "#3b82f6"
                 stroke_width: 2
                 statistics: {type: mean, period: day, align: start}
+              # gelernte Heizgrenze (Effizienz-Check), Tagesmittel aus der Statistik
+              - entity: sensor.brotje_neo_heizgrenze_beobachtet
+                name: Heizgrenze gelernt
+                type: line
+                curve: stepline
+                yaxis_id: t
+                color: "#616161"
+                stroke_width: 2
+                stroke_dash: 6
+                statistics: {type: mean, period: day, align: start}
               - entity: input_number.wpd_heizgrenze
-                name: Heizgrenze
+                name: Heizgrenze Bedienteil
                 type: line
                 yaxis_id: t
                 color: "#9e9e9e"

@@ -328,6 +328,22 @@ Der Check schreibt nie. Er arbeitet unabhängig von allen Freigaben.
 | Raumabweichung 7 d | Mittel (Raum − R101) |
 | Raumabweichung kalt / mild | Stundenmittel bei Außen < 3 °C bzw. > 8 °C, jeweils ≥ 12 h |
 | Arbeitszahl 30 d (gesamt/Heizen/WW) | Differenz der Tageszählerstände; mindestens 20 kWh Strom (WW 10 kWh) |
+| **Heizgrenze beobachtet** | siehe unten |
+
+Heizgrenze beobachtet (selbstlernend, nur lesend):
+
+1. Bei jedem Start einer Heizanforderung (R41 wechselt auf 20) wird R33 (sonst R10)
+   gespeichert, 60 Tage lang.
+2. Kandidat = höchster gespeicherter Wert, ab 3 Starts. Er liegt um die Schalthysterese
+   unter der eingestellten Heizgrenze.
+3. Bestätigt, wenn es in den letzten 14 Tagen mindestens 6 Stunden gab, deren
+   Stundenmittel ≥ Kandidat + 1 K lag und in denen keine Heizanforderung bestand.
+4. Der Sensor zeigt den zuletzt bestätigten Wert. Er bleibt im Winter stehen (dann
+   starten Anforderungen nur bei Kälte, der Kandidat sinkt, wird aber nicht bestätigt)
+   und folgt einer Änderung am Bedienteil in der nächsten Übergangszeit: höher sofort
+   nach Bestätigung, niedriger spätestens nach 60 Tagen.
+
+Attribute: `candidate`, `confirmed_at`, `starts_60d`, `warm_hours_without_demand_14d`, `basis`.
 
 Hinweis zur Heizkurve: Die Kurve der NEO-RWP besteht aus drei Stützpunkten (BA Kap. 6,
 *Heizkreis → Heizkurve*). Die Regression ist eine Näherung. Sie enthält das Raumsoll
@@ -452,7 +468,8 @@ nichts.
   geprüft. Reg. 41 = 40 („Externe Anforderung“) stammt aus Nutzerberichten zu
   Heliotherm, nicht aus der NEO-Doku.
 - Heizkurve, Hysterese, Heizgrenze und Heizstab-Betrieb sind über Modbus nicht
-  schreib- oder lesbar. Der Check gibt dafür Menühinweise.
+  schreib- oder lesbar. Der Check gibt dafür Menühinweise. Heizkurve und Heizgrenze
+  werden aus dem Betrieb abgeleitet (5.2).
 - SG-Ready-Eingänge und PV-Status des RKM sind nicht über Modbus lesbar.
 - Ob das RKM mehrere Modbus-Clients gleichzeitig bedient, ist nicht dokumentiert.
 - Die Hinweistexte des Effizienz-Checks sind nur deutsch.
