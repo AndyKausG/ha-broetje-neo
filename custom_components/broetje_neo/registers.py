@@ -185,10 +185,6 @@ STAGE2_ACTIVE = _bool(148)
 EVU_VALUE = _bool(149)
 EVU_ACTIVE = _bool(150)
 
-PV_REGISTERS: Final = frozenset(
-    {EXT_SPEED_REQUEST.address, PV_POWER.address, SPEED_SETPOINT.address}
-)
-
 # --- Enumerations ----------------------------------------------------------
 OPERATING_MODES: Final[dict[int, str]] = {
     0: "off",

@@ -11,6 +11,7 @@ import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.broetje_neo.const import (
+    CONF_ALLOW_PRICE_LOCK,
     CONF_ALLOW_PV,
     CONF_ALLOW_WRITE,
     CONF_UNIT_ID,
@@ -154,7 +155,7 @@ def config_entry() -> MockConfigEntry:
         title="WP",
         unique_id="192.0.2.10:502:1",
         data={CONF_NAME: "WP", CONF_HOST: "192.0.2.10", CONF_PORT: 502, CONF_UNIT_ID: 1},
-        options={CONF_ALLOW_WRITE: True, CONF_ALLOW_PV: True},
+        options={CONF_ALLOW_WRITE: True, CONF_ALLOW_PV: True, CONF_ALLOW_PRICE_LOCK: True},
     )
 
 

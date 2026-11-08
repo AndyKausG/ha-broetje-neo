@@ -10,6 +10,8 @@
 # ANPASSEN (Platzhalter "anpassen_" ersetzen)
 # 1. Die drei Quell-Entitäten unten (PV-Erzeugung, Netzbezug, Einspeisung,
 #    jeweils Leistung in W, Werte >= 0) eintragen.
+#    Für die Preissperre zusätzlich den Strompreis-Sensor (z.B. Tibber,
+#    Nordpool, EPEX Spot) bei sensor.anpassen_strompreis eintragen.
 #    Hat dein Zähler nur einen saldierten Wert (+Bezug/-Einspeisung), trage ihn
 #    bei Netzbezug ein und nutze die auskommentierten Varianten.
 # 2. Entity-IDs der Integration: Annahme Gerätename "Brötje NEO" und
@@ -311,6 +313,9 @@ input_boolean:
   wpa_pv_vorgabe_freigabe:
     name: "WP PV-Vorgabe freigegeben"
     icon: mdi:solar-power
+  wpa_preissperre_freigabe:
+    name: "WP Preissperre automatisch"
+    icon: mdi:currency-eur-off
 
 input_number:
   wpa_pv_reserve:
@@ -320,6 +325,14 @@ input_number:
     step: 50
     unit_of_measurement: W
     initial: 200
+    mode: box
+  wpa_preis_grenze:
+    name: "WP Preissperre ab Strompreis"
+    min: 0
+    max: 1
+    step: 0.01
+    # Einheit wie dein Preissensor, z.B. EUR/kWh
+    unit_of_measurement: EUR/kWh
     mode: box
 
 automation:
@@ -360,3 +373,64 @@ automation:
           entity_id: number.brotje_neo_pv_leistung
         data:
           value: 0
+
+# ---------------------------------------------------------------------------
+# Preissperre bei hohen Strompreisen (Option "Preissperre erlauben")
+# Die Integration sperrt die WP wie bei einer EVU-Sperre. Schutzgrenzen gelten
+# immer, auch wenn diese Automation etwas anderes will: max. Dauer (Option,
+# Standard 120 min), mind. 60 min Pause zwischen zwei Sperren, keine Sperre
+# unter -10 °C Außentemperatur. Lehnt die Integration ab, läuft die WP normal.
+# ---------------------------------------------------------------------------
+  - id: wpa_preissperre
+    alias: "WP: Preissperre bei hohem Strompreis"
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: sensor.anpassen_strompreis
+      - trigger: time_pattern
+        minutes: "/5"
+    conditions:
+      - condition: state
+        entity_id: input_boolean.wpa_preissperre_freigabe
+        state: "on"
+    actions:
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ has_value('sensor.anpassen_strompreis')
+                     and states('sensor.anpassen_strompreis') | float(0)
+                         > states('input_number.wpa_preis_grenze') | float(99) }}
+              - condition: state
+                entity_id: switch.brotje_neo_preissperre
+                state: "off"
+            sequence:
+              - action: switch.turn_on
+                target:
+                  entity_id: switch.brotje_neo_preissperre
+                continue_on_error: true
+          - conditions:
+              - condition: template
+                value_template: >
+                  {{ not has_value('sensor.anpassen_strompreis')
+                     or states('sensor.anpassen_strompreis') | float(0)
+                        <= states('input_number.wpa_preis_grenze') | float(99) }}
+              - condition: state
+                entity_id: switch.brotje_neo_preissperre
+                state: "on"
+            sequence:
+              - action: switch.turn_off
+                target:
+                  entity_id: switch.brotje_neo_preissperre
+
+  - id: wpa_preissperre_aus
+    alias: "WP: Preissperre beenden bei Abschalten der Automatik"
+    mode: single
+    triggers:
+      - trigger: state
+        entity_id: input_boolean.wpa_preissperre_freigabe
+        to: "off"
+    actions:
+      - action: switch.turn_off
+        target:
+          entity_id: switch.brotje_neo_preissperre

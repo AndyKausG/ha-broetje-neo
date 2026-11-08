@@ -1,125 +1,161 @@
-# Brötje NEO (NEO-RKM) – Home Assistant Integration
+# Brötje NEO (NEO-RKM) für Home Assistant
 
-Home-Assistant-Integration für Brötje-Wärmepumpen der Baureihe **BLW NEO** mit dem
-Kommunikationsmodul **NEO-RKM** (Modbus TCP). Entwickelt und getestet für die
-BLW NEO 18b.
+Zeigt die Werte deiner Brötje-Wärmepumpe **BLW NEO** in Home Assistant an und hilft
+dir, die Anlage mit echten Messwerten zu verstehen und zu optimieren. Optional nutzt
+sie PV-Überschuss und pausiert bei hohen Strompreisen.
 
-> Nicht für IWR/GTW-08 oder ISR Plus. Für diese Module gibt es
-> [ha-broetje](https://github.com/henrywiechert/ha-broetje).
+Voraussetzung: Kommunikationsmodul **NEO-RKM** mit Netzwerkanschluss (Modbus TCP).
+Entwickelt mit einer BLW NEO 18b. Für die Module IWR/GTW-08 oder ISR Plus gibt es
+[ha-broetje](https://github.com/henrywiechert/ha-broetje).
 
-## Funktionen
+---
 
-- Alle Lese- und Schreibregister laut NEO-RKM-Montageanleitung 7734937-01, Kap. 7.1
-  (Tab. 4/5), inkl. Betriebsstunden (Reg. 42–45) und Overrides 147–150
-- Langzeitstatistik für alle Messwerte (`state_class`), Energiezähler für das
-  Energie-Dashboard
-- Abgeleitete Werte: Spreizung VL/RL, Überhitzung, Temperaturhub,
-  Kondensator-Grädigkeit, Spreizung Quelle, COP berechnet, Arbeitszahlen seit
-  Inbetriebnahme (gesamt/Heizen/WW)
-- Betriebsmodi als Binärsensoren (Heizen, Warmwasser, Kühlen) z.B. für die
-  `lovelace-heat-pump-card`
-- Schreibbar: Betriebsart (HKR, MKR1/2), Raumsoll, WW-Normal/-Min, RLT min Kühlen,
-  PV-Leistung (Reg. 125); weitere Overrides standardmäßig deaktiviert
-- Asynchroner Modbus-Zugriff, Wiederverbindung, Entitäten werden bei
-  Kommunikationsfehlern `unavailable` statt Fehlwerte zu liefern
-- Schreibschutz: Bereichsprüfung, mindestens 5 s zwischen Schreibzugriffen auf
-  dasselbe Register (Herstellervorgabe)
-- PV-Watchdog für Register 125
-- Diagnose-Download mit Rohregister-Dump
+## ⚠️ Haftungsausschluss und Sicherheit – bitte lesen
+
+- Dies ist ein **privates, kostenloses Hobbyprojekt**. Es ist **kein Produkt von
+  Brötje** und steht in keiner Verbindung zur August Brötje GmbH / BDR Thermea.
+- Die Software wird **„wie besehen“, ohne jede Gewährleistung** bereitgestellt (MIT-Lizenz,
+  siehe [LICENSE](LICENSE)). **Die Nutzung erfolgt auf eigene Gefahr.** Soweit
+  gesetzlich zulässig, übernimmt der Autor **keine Haftung** für Schäden an der Anlage,
+  am Gebäude, für Energiekosten oder Folgeschäden.
+- Eingriffe in die Regelung können Garantie- oder Gewährleistungsansprüche gegenüber
+  Hersteller oder Installateur berühren. Im Zweifel den Fachbetrieb fragen.
+- **Nach der Einrichtung ist die Integration nur lesend.** Steuern musst du in den
+  Optionen ausdrücklich freischalten.
+
+### So schützt die Integration deine Anlage
+
+| Schutz | Wirkung |
+|--------|---------|
+| Nur lesend als Standard | Ohne Freigabe wird nichts an die Wärmepumpe gesendet |
+| Kurze Positivliste | Geschrieben werden darf nur das, was du auch am Bedienteil einstellen kannst, plus PV-Leistung und Sperre |
+| Sichere Grenzen | Raum 15–25 °C, Warmwasser 40–55 °C (Minimum 35–50 °C), Kühlen Rücklauf min. 18–25 °C (Schutz vor Kondenswasser an der Fußbodenheizung) |
+| Kein „Aus“ | Die Betriebsart „Aus“ lässt sich nicht aus HA setzen (Frostgefahr) |
+| Nicht enthalten | Falsche Fühlerwerte vorgeben, Verdichterdrehzahl vorgeben, Vorlauf/Rücklauf erzwingen, 2. Stufe/Heizstab schalten, Störungen quittieren, EVU-Freigabe erzwingen |
+| Prüfung im Kern | Jeder Schreibbefehl wird zentral geprüft, auch aus Automationen und Skripten. Die Grenzen lassen sich nicht umgehen |
+| Schonend schreiben | Höchstens alle 5 s auf dasselbe Register (Herstellervorgabe) |
+| Rückfall in den Normalbetrieb | Bei HA-Start, -Stopp und Entfernen der Integration werden PV-Vorgabe und Preissperre zurückgesetzt |
+
+Restrisiko: Stürzt Home Assistant ab, ohne sauber zu beenden, bleibt eine aktive
+PV-Vorgabe oder Preissperre bestehen, bis HA wieder läuft. Beim nächsten Start setzt
+die Integration beides sofort zurück. Nutze die Preissperre deshalb nur, wenn HA
+zuverlässig läuft.
+
+---
+
+## Was du siehst
+
+- **Temperaturen**: Außen, Vorlauf, Rücklauf, Warmwasser, Puffer, Luft ein/aus,
+  Kältekreis (Sauggas, Verdampfung, Kondensation, Heißgas)
+- **Leistung & Energie**: Stromaufnahme, Heizleistung, Zähler für Strom und Wärme
+  (getrennt Heizen/Warmwasser), Betriebsstunden. Passt zum Energie-Dashboard
+- **Effizienz**: COP der Anlage, berechneter COP, **Arbeitszahl** seit Inbetriebnahme
+- **Hilfswerte zum Optimieren** (Erklärung unten): Spreizung, Überhitzung,
+  Temperaturhub
+- **Zustände**: Verdichter, Pumpen, Ventilator, Abtauen, Störung, EVU-Freigabe,
+  aktuelle Anforderung (Heizen/Warmwasser/Kühlen)
+
+Alle Werte landen in der Langzeitstatistik von HA. So siehst du auch nach Monaten
+noch Verläufe.
+
+### Kurz erklärt: Woran erkenne ich eine gut eingestellte Anlage?
+
+| Wert | Richtwert | Bedeutung |
+|------|-----------|-----------|
+| Arbeitszahl (Jahr) | ≥ 3,5 bei Fußbodenheizung | kWh Wärme pro kWh Strom. Höher ist besser |
+| Vorlauftemperatur bei −10 °C | ≤ 35 °C Fußbodenheizung | Jedes Grad weniger spart ca. 2–3 % Strom (Heizkurve) |
+| Spreizung Vorlauf/Rücklauf | 3–5 K Fußbodenheizung | Zu groß: zu wenig Durchfluss |
+| Laufzeit pro Verdichterstart | ≥ 20–30 min | Kürzer: Anlage „taktet“, das kostet Effizienz und Lebensdauer |
+| Starts pro Tag | ≤ 10–12 | wie oben |
+| Überhitzung | ca. 4–8 K | Kältekreis-Kennwert. Dauerhaft auffällig: Fachbetrieb fragen |
+
+Werte nicht passend? Ändere die Einstellungen am besten mit dem Fachbetrieb, vor
+allem die Heizkurve. Die Integration liefert dir die Zahlen dafür.
+
+---
 
 ## Installation
 
-HACS → Integrationen → ⋮ → Benutzerdefinierte Repositories →
-`https://github.com/AndyKausG/ha-broetje-neo` (Kategorie Integration) →
-"Brötje NEO (NEO-RKM)" installieren → HA neu starten →
-Einstellungen → Geräte & Dienste → Integration hinzufügen → "Brötje NEO".
+1. HACS → Integrationen → ⋮ → Benutzerdefinierte Repositories →
+   `https://github.com/AndyKausG/ha-broetje-neo`, Kategorie *Integration*.
+2. „Brötje NEO (NEO-RKM)“ installieren, Home Assistant neu starten.
+3. Einstellungen → Geräte & Dienste → Integration hinzufügen → „Brötje NEO“.
+4. Name (bestimmt die Entitätsnamen, z.B. `sensor.brotje_neo_…`), IP-Adresse des
+   NEO-RKM, Port 502, Unit-ID 1.
 
-Voraussetzung im NEO-RKM-Webinterface: Service → Grundbedienung → Modbus →
-Modbus TCP aktivieren, RKM neu starten.
+Im NEO-RKM muss Modbus TCP eingeschaltet sein: Webinterface → Service →
+Grundbedienung → Modbus → TCP aktivieren → RKM neu starten.
 
-| Feld    | Default      | Hinweis                                          |
-|---------|--------------|--------------------------------------------------|
-| Name    | Brötje NEO   | bestimmt die Entity-IDs (`sensor.brotje_neo_*`)  |
-| Host    | –            | IP des NEO-RKM                                   |
-| Port    | 502          |                                                  |
-| Unit-ID | 1            |                                                  |
+## Optionen
 
-Optionen (Integration → Konfigurieren):
+Integration → **Konfigurieren**:
 
-| Option                           | Default | Wirkung |
-|----------------------------------|---------|---------|
-| Einstellungen schreiben erlauben | aus     | Betriebsarten, Sollwerte, Vorgaben/Overrides, Entstören |
-| PV-/Leistungssteuerung erlauben  | aus     | PV-Leistung (Reg. 125), ext. Drehzahlanforderung/-vorgabe (117/126), PV-Watchdog |
-| Abfrageintervall                 | 15 s    | 5–300 s |
-| PV-Watchdog                      | 120 s   | 0 = aus; wirkt nur mit PV-Steuerung |
-| Max. PV-Leistungsvorgabe         | 6000 W  | Obergrenze der Number-Entität |
+| Option | Standard | Was passiert |
+|--------|----------|--------------|
+| Einstellungen schreiben erlauben | aus | Betriebsart (ohne „Aus“) und Sollwerte in den sicheren Grenzen |
+| PV-/Leistungssteuerung erlauben | aus | PV-Überschuss an die Wärmepumpe melden |
+| Preissperre erlauben | aus | Wärmepumpe bei hohem Strompreis pausieren |
+| Preissperre max. Dauer | 120 min | höchstens 180 min |
+| Abfrageintervall | 15 s | 5–300 s |
+| PV-Watchdog | 120 s | PV-Vorgabe verfällt, wenn sie nicht erneuert wird (0 = aus) |
+| Max. PV-Leistungsvorgabe | 6000 W | Obergrenze |
 
-Nach der Ersteinrichtung ist die Integration **nur lesend**: Es gibt keine
-schreibenden Entitäten, und der Coordinator lehnt jeden Schreibzugriff ab, auch
-den PV-Watchdog. Beide Bereiche lassen sich unabhängig voneinander freigeben.
-Wird eine Freigabe wieder entzogen, entfernt die Integration die betroffenen
-Entitäten.
+Schaltest du eine Freigabe wieder aus, verschwinden die zugehörigen Bedienelemente.
 
-## Entitäten (Auszug)
+## PV-Überschuss nutzen
 
-| Plattform     | Entitäten |
-|---------------|-----------|
-| sensor        | Temperaturen (Außen, VL, RL, WW, Puffer, Quelle, Sauggas, Verdampfung, Kondensation, Heißgas), Drücke, Durchfluss (l/min), Verdichterdrehzahl %, Expansionsventil %, COP, el./th. Leistung, 6 Energiezähler, Betriebsstunden, Anforderung, Betriebsart-Status, abgeleitete Werte |
-| binary_sensor | Heizkreispumpe, Pufferladepumpe, Verdichter, Ventilator, Störung, Abtauen, EVU-Freigabe, WW-Vorrang, Kühlen passiv, Heizen, Warmwasser, Kühlen |
-| select        | Betriebsart, MKR1/MKR2-Betriebsart |
-| number        | Raumsoll, WW-Normal/Min, Kühlen RLT min, PV-Leistung, (deaktiviert:) Rücklaufsoll, MKR-Sollwerte, Fühler-Vorgaben, Drehzahlvorgabe |
-| switch        | (alle deaktiviert) "aktiv"-Flags der Vorgaben 103/110/115/117/127/130/132/134/147–150 |
-| button        | Entstören (Reg. 128, Impuls) |
+Das NEO-RKM kann PV-Strom selbst verwerten. Die Integration meldet ihm nur, wie viel
+Überschuss gerade da ist. **Ob und wie stark die Wärmepumpe läuft, entscheidet das
+RKM selbst**, mit den Schutzgrenzen des Herstellers.
 
-Hinweise:
-- **EVU-Freigabe** (Reg. 32): `an` = Betrieb freigegeben, `aus` = EVU-Sperre.
-- **Betriebsart 8–10** (Ausheizen, EVU-Sperre, Hauptschalter aus) ist nur lesbar:
-  Das Select zeigt dann "unbekannt", der Sensor "Betriebsart Status" den Wert.
-- **Overrides** (z.B. Rücklaufsoll aktiv, Reg. 103): Solange aktiv, ignoriert die WP
-  den eigenen Regler bzw. das Raumsoll. Ausschalten schreibt immer 0.
-- Fühler, die die Anlage nicht liefert (Rohwert −50,0 °C), sind `unbekannt`.
-- Energiezähler mit Rohwert 0 werden verworfen (verhindert falsche Resets in der
-  Statistik).
+1. Im RKM-Webinterface unter *Photovoltaik* die PV-Auswahl **Modbus TCP** wählen und
+   Leistungsschwelle, Einschaltverzögerung, Mindestlaufzeit und Max-Begrenzung
+   einstellen (Handbuch NEO-RKM Kap. 7.2, ggf. mit dem Fachbetrieb).
+2. In der Integration *PV-/Leistungssteuerung erlauben* einschalten.
+3. Das Package aus `extras/` einbinden (siehe unten) und den Schalter
+   *WP PV-Vorgabe freigegeben* einschalten.
 
-## PV-Überschuss
+## Preissperre bei hohen Strompreisen
 
-Das NEO-RKM kann den PV-Überschuss selbst nutzen (Kap. 7.2). Im RKM-Webinterface
-unter Photovoltaik die PV-Auswahl **Modbus TCP** wählen und dort Leistungsschwelle,
-Einschaltverzögerung, Mindestlaufzeit und Max-Begrenzung einstellen. HA schreibt
-dann nur den verfügbaren Überschuss in W nach `number.brotje_neo_pv_leistung`
-(Reg. 125). Start, Sollwertanhebung (WW-Max, HZ-Offset) und Modulation regelt
-das RKM.
+Mit einem dynamischen Stromtarif (z.B. Tibber) kann die Wärmepumpe in teuren Stunden
+pausieren. Die Integration nutzt dafür denselben Mechanismus wie eine Sperre durch
+den Netzbetreiber (EVU-Sperre). Damit kommt die Wärmepumpe von Haus aus zurecht.
 
-Voraussetzung in HA: Option "PV-/Leistungssteuerung erlauben" aktiv. Ohne sie
-gibt es `number.brotje_neo_pv_leistung` nicht, und die Package-Automation bleibt
-wirkungslos.
+Schutzgrenzen, fest eingebaut:
+- höchstens **120 min** am Stück (einstellbar bis 180 min), dann automatisch Ende
+- mindestens **60 min Pause** bis zur nächsten Sperre
+- **keine Sperre unter −10 °C** außen, eine laufende Sperre endet bei Frost sofort
+- eine **echte Sperre des Netzbetreibers wird nie aufgehoben**: Die Integration kann
+  nur sperren, nicht freigeben
 
-Schutzmechanismen:
-1. Freigabe-Schalter im Package (`input_boolean.wpa_pv_vorgabe_freigabe`, Default aus)
-2. Sicherheitsabzug (Default 200 W), Rundung auf 50 W
-3. Ausfall von PV- oder Netzmesswerten → 0 W
-4. Watchdog der Integration: Wird Reg. 125 nicht innerhalb der eingestellten Zeit
-   neu geschrieben, setzt die Integration 0. Beim HA-Start (Altwert) und beim
-   Stopp/Entladen wird ebenfalls 0 geschrieben.
+Bedienung: Schalter *Preissperre* von Hand oder automatisch über das Package
+(Preisgrenze einstellen, *WP Preissperre automatisch* einschalten).
 
-Restrisiko: Stürzt HA ab, ohne sauber zu stoppen, bleibt der letzte Wert im RKM
-stehen, bis HA wieder läuft. Deshalb im RKM eine sinnvolle Max-Begrenzung und
-Mindestlaufzeit einstellen.
+Hinweis: Nicht jede RKM-Firmware bietet die nötigen Register (147–150). Dann ist der
+Schalter „nicht verfügbar“.
 
-## Auswertung (`extras/`)
+---
+
+## Auswertung und Dashboard (`extras/`)
 
 | Datei | Zweck |
 |-------|-------|
-| `extras/packages/broetje_neo_analytics.yaml` | HA-Package: Strom/Wärme fein integriert (Riemann) und nach Heizen/WW getrennt, Tages-/Monats-/Jahreszähler, Arbeitszahl Tag/Monat/Jahr, **PV-Anteil**, Verdichterstarts, Laufzeit pro Start, Abtauungen, EVU-Sperrzeit, PV-Überschuss-Automation |
-| `extras/tools/analyze_heatpump.py` | Offline-Auswertung der HA-Datenbank: Monats-AZ, Takten, Abtauen über Außentemperatur, Heizkurve (Fit), Spreizung, Überhitzung, Bewertung gegen Richtwerte |
-| `extras/lovelace/heat-pump-card.yaml` | Konfiguration für `lovelace-heat-pump-card` |
+| `extras/packages/broetje_neo_analytics.yaml` | Arbeitszahl pro Tag/Monat/Jahr, **PV-Anteil**, Starts und Laufzeiten, Abtauungen, EVU-Sperrzeit, Automationen für PV und Preissperre |
+| `extras/tools/analyze_heatpump.py` | Auswertung der HA-Datenbank am PC: Monats-Arbeitszahl, Takten, Heizkurve, Spreizung, Überhitzung mit Bewertung |
+| `extras/lovelace/heat-pump-card.yaml` | Anlagenbild mit der `lovelace-heat-pump-card` |
 
-Package: Datei nach `/config/packages/` kopieren, in `configuration.yaml`
-`homeassistant: packages: !include_dir_named packages` eintragen und die drei
-Platzhalter `sensor.anpassen_*` (PV-Leistung, Netzbezug, Einspeisung in W)
-ersetzen.
+**Package einbinden:** Datei nach `/config/packages/` kopieren, in
+`configuration.yaml` eintragen:
 
-Skript (nur Python-Standardbibliothek, liest die DB nur lesend):
+```yaml
+homeassistant:
+  packages: !include_dir_named packages
+```
+
+Danach in der Datei die Platzhalter `sensor.anpassen_…` durch deine Sensoren
+ersetzen: PV-Leistung, Netzbezug, Einspeisung (in W), optional Strompreis.
+
+**Auswertungsskript** (benötigt nur Python):
 
 ```bash
 sqlite3 /config/home-assistant_v2.db ".backup /tmp/ha.db"
@@ -129,33 +165,46 @@ sqlite3 /config/home-assistant_v2.db ".backup /tmp/ha.db"
 python3 analyze_heatpump.py /tmp/ha.db --since 2025-03-01
 ```
 
-Mit `--profile heliotherm --prefix brotje_blw_neo18b` lassen sich die Daten der
-bisherigen `ha_heliotherm`-Integration auswerten. Die Monats-AZ kommt aus der
-Langzeitstatistik der Energiezähler. Takten, Heizkurve und Kältekreis gehen nur
-über den Rohverlauf (Recorder `purge_keep_days`, Default 10 Tage).
+Mit `--profile heliotherm --prefix brotje_blw_neo18b` werden die Daten der älteren
+Integration `ha_heliotherm` ausgewertet.
 
-## Umstieg von ha_heliotherm / Parallelbetrieb
+## Umstieg von ha_heliotherm
 
-Beide Integrationen können parallel laufen: eigene Domains, eigene Geräte, eigene
-Entity-IDs, kein Konflikt in HA. Empfohlener Ablauf:
+Beide Integrationen können eine Zeit lang parallel laufen:
 
-1. `broetje_neo` mit den Standardoptionen einrichten (nur lesen) und das
-   Abfrageintervall auf 30 s stellen, damit das RKM weniger Last hat.
-2. Einige Tage die Werte vergleichen. Steuern weiterhin nur über `ha_heliotherm`.
-3. Danach die Schreibfreigaben in `broetje_neo` setzen und `ha_heliotherm`
-   deaktivieren oder entfernen.
+1. Diese Integration einrichten (nur lesend), Abfrageintervall auf 30 s.
+2. Ein paar Tage Werte vergleichen, steuern weiter über die alte Integration.
+3. Dann hier die gewünschten Freigaben setzen und `ha_heliotherm` entfernen.
 
-Zu beachten:
-- Ob das NEO-RKM zwei Modbus-TCP-Clients gleichzeitig bedient, ist nicht
-  dokumentiert. Bei Timeouts oder `unavailable` in einer der beiden Integrationen
-  das Intervall erhöhen oder eine Integration deaktivieren.
-- Nicht in beiden Integrationen gleichzeitig steuern, sonst überschreiben sich
-  die Sollwerte gegenseitig.
-- Im Energie-Dashboard nur eine Quelle eintragen, sonst wird doppelt gezählt.
-- Die Statistik beginnt mit den neuen Entity-IDs neu. Die alte Historie bleibt in
-  der Datenbank und kann mit dem Skript (Profil `heliotherm`) ausgewertet werden.
+Nicht in beiden gleichzeitig steuern. Im Energie-Dashboard nur eine Quelle eintragen.
+Treten Verbindungsabbrüche auf, verkraftet das RKM vermutlich keine zwei
+Verbindungen. Dann eine Integration deaktivieren.
 
-## Entwicklung
+---
+
+## Technik
+
+<details>
+<summary>Entitäten, Register, Entwicklung</summary>
+
+Register laut NEO-RKM-Montageanleitung 7734937-01, Kap. 7.1 (Tab. 4/5). Die Belegung
+steht nur in `custom_components/broetje_neo/registers.py`, die Schreib-Positivliste
+mit Grenzen nur in `safety.py`.
+
+| Plattform | Entitäten |
+|-----------|-----------|
+| sensor | Temperaturen, Drücke, Durchfluss (l/min), Verdichterdrehzahl %, Expansionsventil %, COP, Leistungen, Energiezähler, Betriebsstunden, Anforderung, Betriebsart-Status, abgeleitete Werte |
+| binary_sensor | Pumpen, Verdichter, Ventilator, Störung, Abtauen, EVU-Freigabe (an = freigegeben), WW-Vorrang, Kühlen passiv, Heizen/Warmwasser/Kühlen |
+| select | Betriebsart (HKR, MKR1/2) ohne „Aus“ |
+| number | Raumsoll, WW-Normal/-Minimum, Kühlen RLT min, MKR-Raumsoll, PV-Leistung |
+| switch | Preissperre |
+
+Fühler, die die Anlage nicht hat (Rohwert −50,0 °C), werden als „unbekannt“
+angezeigt. Energiezähler mit Rohwert 0 werden verworfen, damit die Statistik keine
+falschen Sprünge bekommt. Diagnose-Download mit allen Rohregistern unter
+Gerät → ⋮ → Diagnose herunterladen.
+
+Entwicklung:
 
 ```bash
 pip install -r requirements_test.txt
@@ -165,21 +214,14 @@ pip install -r requirements_test.txt
 ruff check . && ruff format --check . && pytest -q
 ```
 
-Übersetzungen (`strings.json`, `translations/*.json`) werden aus
-`scripts/gen_translations.py` erzeugt. Die Registerbelegung steht ausschließlich
-in `custom_components/broetje_neo/registers.py`.
+Übersetzungen werden mit `scripts/gen_translations.py` erzeugt.
+</details>
 
 ## Lizenz und Herkunft
 
-MIT, siehe [LICENSE](LICENSE).
-
-Die Registerbelegung stammt aus der öffentlichen Brötje-Dokumentation
-(NEO-RKM-Montageanleitung 7734937-01). Die Herstellerdokumente sind nicht Teil
-dieses Repos. Die Idee geht auf
-[mbuchber/ha_heliotherm](https://github.com/mbuchber/ha_heliotherm) zurück, die
-Architektur orientiert sich an
-[henrywiechert/ha-broetje](https://github.com/henrywiechert/ha-broetje). Aus
-beiden Projekten wurde kein Code übernommen.
-
-Keine Verbindung zur BDR Thermea Group / August Brötje GmbH. Nutzung auf eigenes
-Risiko: Über Modbus lässt sich die Regelung der Wärmepumpe übersteuern.
+MIT, siehe [LICENSE](LICENSE). Die Registerbelegung stammt aus der Brötje-Dokumentation
+(NEO-RKM-Montageanleitung 7734937-01). Herstellerdokumente sind nicht Teil des Repos.
+Die Idee geht auf [mbuchber/ha_heliotherm](https://github.com/mbuchber/ha_heliotherm)
+zurück, die Architektur orientiert sich an
+[henrywiechert/ha-broetje](https://github.com/henrywiechert/ha-broetje). Aus beiden
+Projekten wurde kein Code übernommen.

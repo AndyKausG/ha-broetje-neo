@@ -19,13 +19,16 @@ from pymodbus.exceptions import ModbusException
 import voluptuous as vol
 
 from .const import (
+    CONF_ALLOW_PRICE_LOCK,
     CONF_ALLOW_PV,
     CONF_ALLOW_WRITE,
     CONF_MODEL,
+    CONF_PRICE_LOCK_MAX,
     CONF_PV_MAX_POWER,
     CONF_PV_WATCHDOG,
     CONF_SCAN_INTERVAL,
     CONF_UNIT_ID,
+    DEFAULT_ALLOW_PRICE_LOCK,
     DEFAULT_ALLOW_PV,
     DEFAULT_ALLOW_WRITE,
     DEFAULT_MODEL,
@@ -41,6 +44,7 @@ from .const import (
     MODBUS_TIMEOUT,
 )
 from .registers import T_OUTDOOR
+from .safety import PRICE_LOCK_MAX_MINUTES_DEFAULT, PRICE_LOCK_MAX_MINUTES_LIMIT
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -133,6 +137,14 @@ class BroetjeNeoOptionsFlow(OptionsFlow):
                     CONF_ALLOW_PV,
                     default=opts.get(CONF_ALLOW_PV, DEFAULT_ALLOW_PV),
                 ): selector.BooleanSelector(),
+                vol.Required(
+                    CONF_ALLOW_PRICE_LOCK,
+                    default=opts.get(CONF_ALLOW_PRICE_LOCK, DEFAULT_ALLOW_PRICE_LOCK),
+                ): selector.BooleanSelector(),
+                vol.Required(
+                    CONF_PRICE_LOCK_MAX,
+                    default=opts.get(CONF_PRICE_LOCK_MAX, PRICE_LOCK_MAX_MINUTES_DEFAULT),
+                ): _num(30, PRICE_LOCK_MAX_MINUTES_LIMIT, 10),
                 vol.Required(
                     CONF_SCAN_INTERVAL,
                     default=opts.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),

@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Brötje NEO-RKM",
-        "description": "Modbus TCP must be enabled in the NEO-RKM web interface (Service → Grundbedienung → Modbus).",
+        "description": "Modbus TCP must be enabled in the NEO-RKM web interface (Service → Grundbedienung → Modbus).\n\nUse at your own risk, without any warranty or liability (see README). After setup the integration is read-only.",
         "data": {
           "name": "Name",
           "host": "Host",
@@ -28,13 +28,16 @@
         "data": {
           "allow_write": "Allow writing settings",
           "allow_pv": "Allow PV / power control",
+          "allow_price_lock": "Allow price lock",
+          "price_lock_max_minutes": "Price lock max. duration (min)",
           "scan_interval": "Polling interval (s)",
           "pv_watchdog": "PV watchdog (s, 0 = off)",
           "pv_max_power": "Maximum PV power target (W)"
         },
         "data_description": {
-          "allow_write": "Operating modes, setpoints, overrides, fault reset. Off = read-only.",
-          "allow_pv": "PV power target (reg. 125), external speed request/setpoint (117/126) and PV watchdog."
+          "allow_write": "Operating mode (not 'off') and setpoints within safe limits. Off = read-only.",
+          "allow_pv": "PV power target (reg. 125) incl. watchdog. The NEO-RKM decides itself when and how strongly the heat pump runs.",
+          "allow_price_lock": "Pause the heat pump during expensive hours like a utility lock. Max. duration below, min. 60 min pause, not below -10 °C outdoor."
         }
       }
     }
@@ -283,14 +286,8 @@
       "cooling_return_min": {
         "name": "Cooling return min"
       },
-      "return_setpoint": {
-        "name": "Return setpoint override"
-      },
       "mkr1_room_setpoint": {
         "name": "MKR1 room setpoint"
-      },
-      "mkr1_flow_setpoint": {
-        "name": "MKR1 flow setpoint override"
       },
       "mkr1_cooling_return_min": {
         "name": "MKR1 cooling return min"
@@ -298,69 +295,16 @@
       "mkr2_room_setpoint": {
         "name": "MKR2 room setpoint"
       },
-      "mkr2_flow_setpoint": {
-        "name": "MKR2 flow setpoint override"
-      },
       "mkr2_cooling_return_min": {
         "name": "MKR2 cooling return min"
       },
-      "outdoor_override_value": {
-        "name": "Outdoor temperature override"
-      },
-      "buffer_override_value": {
-        "name": "Buffer temperature override"
-      },
-      "dhw_override_value": {
-        "name": "DHW temperature override"
-      },
       "pv_power": {
         "name": "PV power"
-      },
-      "compressor_speed_setpoint": {
-        "name": "Compressor speed setpoint"
       }
     },
     "switch": {
-      "return_setpoint_active": {
-        "name": "Return setpoint override active"
-      },
-      "mkr1_flow_setpoint_active": {
-        "name": "MKR1 flow setpoint override active"
-      },
-      "mkr2_flow_setpoint_active": {
-        "name": "MKR2 flow setpoint override active"
-      },
-      "external_speed_request": {
-        "name": "External compressor speed request"
-      },
-      "external_request": {
-        "name": "External request"
-      },
-      "outdoor_override_active": {
-        "name": "Outdoor temperature override active"
-      },
-      "buffer_override_active": {
-        "name": "Buffer temperature override active"
-      },
-      "dhw_override_active": {
-        "name": "DHW temperature override active"
-      },
-      "stage2_value": {
-        "name": "2nd stage"
-      },
-      "stage2_active": {
-        "name": "2nd stage override active"
-      },
-      "evu_release_value": {
-        "name": "Utility release value"
-      },
-      "evu_release_active": {
-        "name": "Utility release override active"
-      }
-    },
-    "button": {
-      "reset_fault": {
-        "name": "Reset fault"
+      "price_lock": {
+        "name": "Price lock"
       }
     }
   }

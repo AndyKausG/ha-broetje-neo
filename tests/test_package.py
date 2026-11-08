@@ -43,7 +43,9 @@ async def _settle(hass: HomeAssistant) -> None:
 async def test_package_entity_ids_exist(hass: HomeAssistant, fake_client, config_entry) -> None:
     await _setup_de(hass, config_entry)
     text = PACKAGE.read_text(encoding="utf-8") + CARD.read_text(encoding="utf-8")
-    ids = set(re.findall(r"\b((?:sensor|binary_sensor|number)\.brotje_neo_\w+)", text))
+    ids = set(
+        re.findall(r"\b((?:sensor|binary_sensor|number|switch|select)\.brotje_neo_\w+)", text)
+    )
     assert ids
     missing = [i for i in sorted(ids) if hass.states.get(i) is None]
     assert not missing, missing
@@ -116,8 +118,43 @@ async def test_package_full_config(hass: HomeAssistant, fake_client, config_entr
         "sensor.wpa_verdichterstarts_heute",
         "sensor.wpa_evu_sperrzeit_heute",
         "automation.wp_pv_uberschuss_an_neo_rkm_melden",
+        "automation.wp_preissperre_bei_hohem_strompreis",
+        "automation.wp_preissperre_beenden_bei_abschalten_der_automatik",
     ):
         assert hass.states.get(eid) is not None, eid
     # utility meter sources must exist
     for meter in conf["utility_meter"].values():
         assert hass.states.get(meter["source"]) is not None, meter["source"]
+
+
+async def test_package_price_lock_automation(
+    hass: HomeAssistant, fake_client, config_entry
+) -> None:
+    hass.config.language = "de"
+    conf = parse_yaml(PACKAGE.read_text(encoding="utf-8"))
+    await _setup_de(hass, config_entry)
+    hass.states.async_set("sensor.anpassen_strompreis", "0.45")
+    for domain in ("input_boolean", "input_number", "automation"):
+        assert await async_setup_component(hass, domain, {domain: conf[domain]}), domain
+    await _settle(hass)
+    await hass.services.async_call(
+        "input_number",
+        "set_value",
+        {"entity_id": "input_number.wpa_preis_grenze", "value": 0.35},
+        blocking=True,
+    )
+    await hass.services.async_call(
+        "input_boolean",
+        "turn_on",
+        {"entity_id": "input_boolean.wpa_preissperre_freigabe"},
+        blocking=True,
+    )
+    auto = "automation.wp_preissperre_bei_hohem_strompreis"
+    await hass.services.async_call("automation", "trigger", {"entity_id": auto}, blocking=True)
+    await _settle(hass)
+    assert fake_client.holding[150] == 1
+    assert hass.states.get("switch.brotje_neo_preissperre").state == "on"
+
+    hass.states.async_set("sensor.anpassen_strompreis", "0.20")
+    await _settle(hass)
+    assert fake_client.holding[150] == 0

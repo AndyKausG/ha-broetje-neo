@@ -11,11 +11,13 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from . import registers as r
 from .coordinator import BroetjeConfigEntry
 from .entity import BroetjeNeoEntity
+from .safety import SAFE_MODES
 
 PARALLEL_UPDATES = 1
 
-_OPTIONS = list(r.WRITABLE_OPERATING_MODES.values())
-_REVERSE = {v: k for k, v in r.WRITABLE_OPERATING_MODES.items()}
+# "off" is excluded on purpose (frost risk), see safety.SAFE_MODES
+_OPTIONS = list(SAFE_MODES.values())
+_REVERSE = {v: k for k, v in SAFE_MODES.items()}
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -61,7 +63,8 @@ async def async_setup_entry(
 
 
 class BroetjeNeoSelect(BroetjeNeoEntity, SelectEntity):
-    """Operating mode select (values 8-10 are read-only and shown as unknown)."""
+    """Operating mode select. "Off" and read-only modes 8-10 show as unknown;
+    the actual mode is always visible in the "operating mode status" sensor."""
 
     entity_description: BroetjeSelectDescription
 
@@ -69,7 +72,7 @@ class BroetjeNeoSelect(BroetjeNeoEntity, SelectEntity):
     def current_option(self) -> str | None:
         """Return current mode."""
         raw = self.coordinator.raw(self.entity_description.register)
-        return r.WRITABLE_OPERATING_MODES.get(raw) if raw is not None else None
+        return SAFE_MODES.get(raw) if raw is not None else None
 
     async def async_select_option(self, option: str) -> None:
         """Write the mode."""

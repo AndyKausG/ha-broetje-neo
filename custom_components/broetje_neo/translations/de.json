@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Brötje NEO-RKM",
-        "description": "Modbus TCP muss im Webinterface des NEO-RKM aktiviert sein (Service → Grundbedienung → Modbus).",
+        "description": "Modbus TCP muss im Webinterface des NEO-RKM aktiviert sein (Service → Grundbedienung → Modbus).\n\nNutzung auf eigene Gefahr, ohne Gewährleistung und Haftung (siehe README). Nach der Einrichtung ist die Integration nur lesend.",
         "data": {
           "name": "Name",
           "host": "Host",
@@ -28,13 +28,16 @@
         "data": {
           "allow_write": "Einstellungen schreiben erlauben",
           "allow_pv": "PV-/Leistungssteuerung erlauben",
+          "allow_price_lock": "Preissperre erlauben",
+          "price_lock_max_minutes": "Preissperre max. Dauer (min)",
           "scan_interval": "Abfrageintervall (s)",
           "pv_watchdog": "PV-Watchdog (s, 0 = aus)",
           "pv_max_power": "Maximale PV-Leistungsvorgabe (W)"
         },
         "data_description": {
-          "allow_write": "Betriebsarten, Sollwerte, Vorgaben, Entstören. Aus = nur lesen.",
-          "allow_pv": "PV-Leistungsvorgabe (Reg. 125), ext. Drehzahlanforderung/-vorgabe (117/126) und PV-Watchdog."
+          "allow_write": "Betriebsart (nicht 'Aus') und Sollwerte in sicheren Grenzen. Aus = nur lesen.",
+          "allow_pv": "PV-Leistungsvorgabe (Reg. 125) inkl. Watchdog. Wann und wie stark die WP läuft, entscheidet das NEO-RKM selbst.",
+          "allow_price_lock": "Wärmepumpe bei hohen Strompreisen wie bei einer EVU-Sperre pausieren. Max. Dauer siehe unten, mind. 60 min Pause, nicht unter -10 °C außen."
         }
       }
     }
@@ -283,14 +286,8 @@
       "cooling_return_min": {
         "name": "Kühlen RLT min"
       },
-      "return_setpoint": {
-        "name": "Rücklaufsoll Vorgabe"
-      },
       "mkr1_room_setpoint": {
         "name": "MKR1 Raumsoll"
-      },
-      "mkr1_flow_setpoint": {
-        "name": "MKR1 Vorlaufsoll Vorgabe"
       },
       "mkr1_cooling_return_min": {
         "name": "MKR1 Kühlen RLT min"
@@ -298,69 +295,16 @@
       "mkr2_room_setpoint": {
         "name": "MKR2 Raumsoll"
       },
-      "mkr2_flow_setpoint": {
-        "name": "MKR2 Vorlaufsoll Vorgabe"
-      },
       "mkr2_cooling_return_min": {
         "name": "MKR2 Kühlen RLT min"
       },
-      "outdoor_override_value": {
-        "name": "Außentemperatur Vorgabe"
-      },
-      "buffer_override_value": {
-        "name": "Puffertemperatur Vorgabe"
-      },
-      "dhw_override_value": {
-        "name": "WW-Temperatur Vorgabe"
-      },
       "pv_power": {
         "name": "PV-Leistung"
-      },
-      "compressor_speed_setpoint": {
-        "name": "Verdichterdrehzahl Vorgabe"
       }
     },
     "switch": {
-      "return_setpoint_active": {
-        "name": "Rücklaufsoll Vorgabe aktiv"
-      },
-      "mkr1_flow_setpoint_active": {
-        "name": "MKR1 Vorlaufsoll Vorgabe aktiv"
-      },
-      "mkr2_flow_setpoint_active": {
-        "name": "MKR2 Vorlaufsoll Vorgabe aktiv"
-      },
-      "external_speed_request": {
-        "name": "Anforderung ext. Drehzahlvorgabe"
-      },
-      "external_request": {
-        "name": "Externe Anforderung"
-      },
-      "outdoor_override_active": {
-        "name": "Außentemperatur Vorgabe aktiv"
-      },
-      "buffer_override_active": {
-        "name": "Puffertemperatur Vorgabe aktiv"
-      },
-      "dhw_override_active": {
-        "name": "WW-Temperatur Vorgabe aktiv"
-      },
-      "stage2_value": {
-        "name": "2. Stufe"
-      },
-      "stage2_active": {
-        "name": "2. Stufe Vorgabe aktiv"
-      },
-      "evu_release_value": {
-        "name": "EVU-Freigabe Wert"
-      },
-      "evu_release_active": {
-        "name": "EVU-Freigabe Vorgabe aktiv"
-      }
-    },
-    "button": {
-      "reset_fault": {
-        "name": "Entstören"
+      "price_lock": {
+        "name": "Preissperre"
       }
     }
   }

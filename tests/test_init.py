@@ -56,13 +56,6 @@ async def test_sensors(hass: HomeAssistant, fake_client, config_entry) -> None:
     assert st("number.wp_room_setpoint").state == "21.5"
 
 
-async def test_disabled_by_default(hass: HomeAssistant, fake_client, config_entry) -> None:
-    await _setup(hass, config_entry)
-    reg = er.async_get(hass)
-    ent = reg.async_get("switch.wp_return_setpoint_override_active")
-    assert ent is not None and ent.disabled_by is er.RegistryEntryDisabler.INTEGRATION
-
-
 async def test_write_number_and_select(hass: HomeAssistant, fake_client, config_entry) -> None:
     await _setup(hass, config_entry)
     await hass.services.async_call(
@@ -136,22 +129,6 @@ async def test_unload_resets_pv(hass: HomeAssistant, fake_client, config_entry) 
     assert fake_client.holding[125] == 0
 
 
-async def test_switch_off_writes_zero(hass: HomeAssistant, fake_client, config_entry) -> None:
-    reg = er.async_get(hass)
-    await _setup(hass, config_entry)
-    reg.async_update_entity("switch.wp_return_setpoint_override_active", disabled_by=None)
-    await hass.config_entries.async_reload(config_entry.entry_id)
-    await hass.async_block_till_done()
-    fake_client.holding[103] = 1
-    await hass.services.async_call(
-        "switch",
-        "turn_off",
-        {"entity_id": "switch.wp_return_setpoint_override_active"},
-        blocking=True,
-    )
-    assert fake_client.holding[103] == 0
-
-
 async def test_optional_block_missing(hass: HomeAssistant, fake_client, config_entry) -> None:
     fake_client.missing = {42, 147}
     await _setup(hass, config_entry)
@@ -192,7 +169,7 @@ async def test_readonly_default(hass: HomeAssistant, fake_client, readonly_entry
         "number.wp_room_setpoint",
         "number.wp_pv_power",
         "select.wp_operating_mode",
-        "button.wp_reset_fault",
+        "switch.wp_price_lock",
     ):
         assert hass.states.get(eid) is None, eid
     coordinator = readonly_entry.runtime_data
@@ -251,3 +228,142 @@ async def test_disabling_write_removes_entities(
     assert reg.async_get("number.wp_room_setpoint") is None
     assert reg.async_get("number.wp_pv_power") is None
     assert reg.async_get("sensor.wp_outdoor_temperature") is not None
+
+
+# --------------------------------------------------------------- safety
+async def test_unsafe_values_rejected(hass: HomeAssistant, fake_client, config_entry) -> None:
+    await _setup(hass, config_entry)
+    coordinator = config_entry.runtime_data
+    with pytest.raises(HomeAssistantError):
+        await coordinator.async_write(r.ROOM_SETPOINT, 30)
+    with pytest.raises(HomeAssistantError):
+        await coordinator.async_write(r.DHW_NORMAL, 65)
+    with pytest.raises(HomeAssistantError):
+        await coordinator.async_write(r.COOLING_RLT_MIN, 15)
+    with pytest.raises(HomeAssistantError):
+        await coordinator.async_write(r.OPERATING_MODE, 0)  # "off"
+    for reg in (
+        r.RETURN_SETPOINT_ACTIVE,
+        r.OUTDOOR_VALUE,
+        r.SPEED_SETPOINT,
+        r.STAGE2_ACTIVE,
+        r.RESET_FAULT,
+        r.EXT_SPEED_REQUEST,
+    ):
+        with pytest.raises(HomeAssistantError):
+            await coordinator.async_write(reg, 1)
+    with pytest.raises(HomeAssistantError):
+        await coordinator.async_write(r.EVU_VALUE, 1)  # never force release
+    assert all(not c.writes for c in fake_client.instances)
+    assert "off" not in hass.states.get("select.wp_operating_mode").attributes["options"]
+
+
+async def test_dhw_min_not_above_normal(hass: HomeAssistant, fake_client, config_entry) -> None:
+    fake_client.holding[105] = 460  # normal 46 °C, min 45 °C
+    await _setup(hass, config_entry)
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            "number",
+            "set_value",
+            {"entity_id": "number.wp_dhw_minimum_temperature", "value": 48.0},
+            blocking=True,
+        )
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            "number",
+            "set_value",
+            {"entity_id": "number.wp_dhw_normal_temperature", "value": 42.0},
+            blocking=True,
+        )
+    assert fake_client.holding[106] == 450
+
+
+# ----------------------------------------------------------- price lock
+async def _lock(hass: HomeAssistant, on: bool) -> None:
+    await hass.services.async_call(
+        "switch",
+        "turn_on" if on else "turn_off",
+        {"entity_id": "switch.wp_price_lock"},
+        blocking=True,
+    )
+
+
+async def test_price_lock_on_off(hass: HomeAssistant, fake_client, config_entry) -> None:
+    await _setup(hass, config_entry)
+    assert hass.states.get("switch.wp_price_lock").state == STATE_OFF
+    await _lock(hass, True)
+    assert fake_client.holding[149] == 0 and fake_client.holding[150] == 1
+    assert hass.states.get("switch.wp_price_lock").state == STATE_ON
+    await _lock(hass, False)
+    assert fake_client.holding[150] == 0
+    assert hass.states.get("switch.wp_price_lock").state == STATE_OFF
+    # minimum pause between locks
+    with pytest.raises(HomeAssistantError, match="Mindestpause"):
+        await _lock(hass, True)
+    assert fake_client.holding[150] == 0
+
+
+async def test_price_lock_refused_when_cold(hass: HomeAssistant, fake_client, config_entry) -> None:
+    fake_client.input[10] = (-120) & 0xFFFF  # -12 °C
+    await _setup(hass, config_entry)
+    with pytest.raises(HomeAssistantError, match="Außentemperatur"):
+        await _lock(hass, True)
+    assert fake_client.holding[150] == 0
+
+
+async def test_price_lock_max_duration(
+    hass: HomeAssistant, fake_client, config_entry, freezer: FrozenDateTimeFactory
+) -> None:
+    await _setup(hass, config_entry)
+    await _lock(hass, True)
+    coordinator = config_entry.runtime_data
+    coordinator._lock_started -= coordinator.price_lock_max_s + 1  # noqa: SLF001
+    freezer.tick(timedelta(seconds=20))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert fake_client.holding[150] == 0
+
+
+async def test_price_lock_released_when_getting_cold(
+    hass: HomeAssistant, fake_client, config_entry, freezer: FrozenDateTimeFactory
+) -> None:
+    await _setup(hass, config_entry)
+    await _lock(hass, True)
+    fake_client.input[10] = (-110) & 0xFFFF
+    freezer.tick(timedelta(seconds=20))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert fake_client.holding[150] == 0
+
+
+async def test_stale_price_lock_released_on_start(
+    hass: HomeAssistant, fake_client, config_entry
+) -> None:
+    fake_client.holding[149] = 0
+    fake_client.holding[150] = 1
+    await _setup(hass, config_entry)
+    assert fake_client.holding[150] == 0
+
+
+async def test_price_lock_released_on_unload(
+    hass: HomeAssistant, fake_client, config_entry
+) -> None:
+    await _setup(hass, config_entry)
+    await _lock(hass, True)
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    assert fake_client.holding[150] == 0
+
+
+async def test_price_lock_unsupported(hass: HomeAssistant, fake_client, config_entry) -> None:
+    fake_client.missing = {147}
+    await _setup(hass, config_entry)
+    assert hass.states.get("switch.wp_price_lock").state == STATE_UNAVAILABLE
+
+
+async def test_readonly_does_not_touch_lock(
+    hass: HomeAssistant, fake_client, readonly_entry
+) -> None:
+    fake_client.holding[150] = 1  # e.g. set by the installer
+    await _setup(hass, readonly_entry)
+    assert await hass.config_entries.async_unload(readonly_entry.entry_id)
+    assert fake_client.holding[150] == 1
