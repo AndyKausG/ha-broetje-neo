@@ -116,7 +116,7 @@ Einheiten nach RKM Tab. 4. Alle Messwerte haben `state_class: measurement`, Zäh
 | 39 | Kühlen UMV passiv | ≠0 | Kühlen passiv |
 | 40 | Expansionsventil | ‰ → % | Expansionsventil |
 | 41 | Anforderung 0/10/20/30 (40) | Enum | Anforderung (Attribut `raw`); binär: Heizen / Warmwasser / Kühlen |
-| 42–43 / 44–45 | Betriebsstunden WW / Heizen | h | Betriebsstunden … |
+| 42–43 / 44–45 | Betriebsstunden WW / Heizen | h | Betriebsstunden … (0 = ungültig, kein Reset in der Statistik) |
 | 60–61 / 62–63 | Wärme / Strom Heizen | kWh | Wärmemenge / Strom Heizen |
 | 64–65 / 66–67 | Wärme / Strom WW | kWh | … Warmwasser |
 | 68–69 | Strom gesamt | kWh | Strom gesamt |
@@ -124,6 +124,7 @@ Einheiten nach RKM Tab. 4. Alle Messwerte haben `state_class: measurement`, Zäh
 | 72–73 | Wärme gesamt | kWh | Wärmemenge gesamt |
 | 74–75 | Heizleistung | 0,1 kW | Heizleistung |
 | 100 | Betriebsart 0–10 | Enum | Betriebsart Status (alle Werte, inkl. 8 Ausheizen, 9 EVU-Sperre, 10 Hauptschalter aus) |
+| 107 / 112 | Betriebsart MKR1 / MKR2 | Enum | MKR1/MKR2 Betriebsart Status, nur lesend, auch ohne Schreiboption (MKR2 deaktiviert) |
 
 Abgeleitete Sensoren (nur Rechnung, keine Register):
 
@@ -140,6 +141,8 @@ Abgeleitete Sensoren (nur Rechnung, keine Register):
 ---
 
 Zwei Kartenvarianten in `extras/lovelace/`: `heat-pump-card.yaml` (Heizkreis direkt, Vorlauf/Rücklauf der Wärmepumpe) und `heat-pump-card-mischer.yaml` (Puffer + Mischerkreis; Heizkreis zeigt den MKR1-Vorlaufsoll, kein Rücklauf, da der NEO-RKM keine gemessenen Mischerwerte liefert).
+
+Wandtablet-Dashboard mit Status-Logik, Laufzeiten und animiertem Schema: `docs/DASHBOARD.md`.
 
 ## 3. Schreiben
 

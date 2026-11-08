@@ -735,3 +735,20 @@ async def test_mkr1_flow_setpoint_active_mixer(
     fake_client.holding[107] = 1
     await _setup(hass, config_entry)
     assert hass.states.get("sensor.wp_mkr1_flow_setpoint").state == "32.6"
+
+
+async def test_mixer_mode_status_and_statistics(
+    hass: HomeAssistant, fake_client, readonly_entry
+) -> None:
+    """MKR mode status is readable without write access; daily lock counter has LTS."""
+    fake_client.holding[107] = 3  # summer
+    await _setup(hass, readonly_entry)
+    st = hass.states.get
+    mkr1 = st("sensor.wp_mkr1_operating_mode_status")
+    assert mkr1.state == "summer"
+    assert mkr1.attributes["raw"] == 3
+    assert st("select.wp_mkr1_operating_mode") is None
+    reg = er.async_get(hass).async_get("sensor.wp_mkr2_operating_mode_status")
+    assert reg is not None and reg.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    lock = st("sensor.wp_grid_operator_control_today")
+    assert lock.attributes["state_class"] == "total_increasing"

@@ -91,6 +91,8 @@ ENTITIES: dict[str, dict[str, tuple[str, str]]] = {
         "operating_hours_heating": ("Operating hours heating", "Betriebsstunden Heizen"),
         "demand": ("Demand", "Anforderung"),
         "operating_mode_status": ("Operating mode status", "Betriebsart Status"),
+        "mkr1_operating_mode_status": ("MKR1 operating mode status", "MKR1 Betriebsart Status"),
+        "mkr2_operating_mode_status": ("MKR2 operating mode status", "MKR2 Betriebsart Status"),
         "flow_return_spread": ("Flow/return spread", "Spreizung VL/RL"),
         "superheat": ("Superheat", "Überhitzung"),
         "temperature_lift": ("Temperature lift", "Temperaturhub"),
@@ -258,7 +260,7 @@ def build(lang: str) -> dict:
             entry: dict = {"name": names[idx]}
             if platform == "select":
                 entry["state"] = {k: MODES[k][idx] for k in WRITABLE}
-            if key == "operating_mode_status":
+            if key.endswith("operating_mode_status"):
                 entry["state"] = {k: v[idx] for k, v in MODES.items()}
             if key == "demand":
                 entry["state"] = {k: v[idx] for k, v in DEMANDS.items()}

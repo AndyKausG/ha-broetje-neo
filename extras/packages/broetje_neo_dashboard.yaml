@@ -1,0 +1,232 @@
+# Brötje NEO – Hilfssensoren für das Dashboard (extras/dashboard/)
+# Lizenz: MIT (siehe LICENSE im Repo-Root)
+#
+# Einbindung wie broetje_neo_analytics.yaml:
+#   homeassistant:
+#     packages: !include_dir_named packages
+# Datei nach /config/packages/broetje_neo_dashboard.yaml kopieren.
+#
+# ============================================================================
+# ENTITÄTEN-ZUORDNUNG (aus dem Code der Integration abgeleitet)
+# Annahme: Gerätename "Brötje NEO", HA-Sprache Deutsch -> Präfix "brotje_neo_".
+# Bei anderem Gerätenamen per Suchen/Ersetzen "brotje_neo_" anpassen.
+#
+#   binary_sensor.brotje_neo_heizen          Anforderung = Heizen   (R41 = 20)
+#   binary_sensor.brotje_neo_warmwasser      Anforderung = WW       (R41 = 30)
+#   binary_sensor.brotje_neo_kuhlen          Anforderung = Kühlen   (R41 = 10)
+#   binary_sensor.brotje_neo_verdichter      Wärmepumpe läuft       (R25)
+#   binary_sensor.brotje_neo_heizkreispumpe  Heizkreispumpe         (R23)
+#   binary_sensor.brotje_neo_pufferladepumpe Pufferladepumpe        (R24)
+#   binary_sensor.brotje_neo_abtauen         4-Wege-Ventil          (R27, auch beim Kühlen an)
+#   binary_sensor.brotje_neo_kuhlen_passiv   Kühlen passiv          (R39)
+#   binary_sensor.brotje_neo_storung         Störung                (R26)
+#   binary_sensor.brotje_neo_evu_freigabe    EVU-Freigabe           (R32, aus = Sperre)
+#   sensor.brotje_neo_betriebsart_status     Betriebsart (R100, Enum: off/auto/summer/.../evu_lock)
+#
+# Erzeugte Entitäten (Präfix wpd_):
+#   sensor.wpd_status, sensor.wpd_status_code, binary_sensor.wpd_verdichter_heizen,
+#   sensor.wpd_heizanforderung_zuletzt_gestartet, sensor.wpd_heizperiode_gestartet,
+#   sensor.wpd_verdichter_heizen_zuletzt_gestartet,
+#   sensor.wpd_{heizanforderung,verdichterlaufzeit,verdichterlaufzeit_heizen}_{heute,gestern,7_tage},
+#   input_number.wpd_heizgrenze
+#
+# Die Heizgrenze ist über Modbus nicht lesbar. Wert vom Bedienteil hier
+# eintragen (input_number.wpd_heizgrenze, "initial"), sie dient nur als
+# Linie im 30-Tage-Diagramm.
+# ============================================================================
+
+template:
+  - binary_sensor:
+      # Verdichter läuft für die Heizung (nicht für WW / Abtauen / Kühlen)
+      - name: "WPD Verdichter Heizen"
+        unique_id: wpd_verdichter_heizen
+        device_class: running
+        state: >
+          {{ is_state('binary_sensor.brotje_neo_verdichter', 'on')
+             and is_state('binary_sensor.brotje_neo_heizen', 'on') }}
+        availability: >
+          {{ has_value('binary_sensor.brotje_neo_verdichter')
+             and has_value('binary_sensor.brotje_neo_heizen') }}
+
+  - sensor:
+      # Betriebszustand mit fester Priorität (erste zutreffende Zeile gewinnt):
+      #  1 Störung  2 EVU-Sperre  3 Aus  4 Abtauen  5 Warmwasser  6 Heizen
+      #  7 Kühlen  8 Verdichter läuft (PV/extern)  9 Heizanforderung (Puffer reicht)
+      # 10 WW-Anforderung  11 Sommerbetrieb  12 Standby
+      # sensor.wpd_status_code ist sprachneutral (Kartenfarben, Automationen),
+      # sensor.wpd_status ist der deutsche Anzeigetext dazu.
+      - name: "WPD Status Code"
+        unique_id: wpd_status_code
+        icon: mdi:heat-pump-outline
+        state: >
+          {% set on = is_state %}
+          {% set mode = states('sensor.brotje_neo_betriebsart_status') %}
+          {% set run = on('binary_sensor.brotje_neo_verdichter', 'on') %}
+          {% set cool = on('binary_sensor.brotje_neo_kuhlen', 'on')
+                        or on('binary_sensor.brotje_neo_kuhlen_passiv', 'on') %}
+          {% if on('binary_sensor.brotje_neo_storung', 'on') %}stoerung
+          {% elif on('binary_sensor.brotje_neo_evu_freigabe', 'off') or mode == 'evu_lock' %}evu_sperre
+          {% elif mode in ('off', 'main_switch_off') %}aus
+          {% elif on('binary_sensor.brotje_neo_abtauen', 'on') and not cool %}abtauen
+          {% elif run and on('binary_sensor.brotje_neo_warmwasser', 'on') %}warmwasser
+          {% elif run and on('binary_sensor.brotje_neo_heizen', 'on') %}heizen
+          {% elif cool %}kuehlen
+          {% elif run %}verdichter
+          {% elif on('binary_sensor.brotje_neo_heizen', 'on') %}heizanforderung
+          {% elif on('binary_sensor.brotje_neo_warmwasser', 'on') %}ww_anforderung
+          {% elif mode == 'summer' %}sommer
+          {% else %}standby{% endif %}
+        availability: "{{ has_value('binary_sensor.brotje_neo_verdichter') }}"
+
+      - name: "WPD Status"
+        unique_id: wpd_status
+        state: >
+          {{ {'stoerung': 'Störung', 'evu_sperre': 'EVU-Sperre', 'aus': 'Aus',
+              'abtauen': 'Abtauen', 'warmwasser': 'Warmwasser', 'heizen': 'Heizen',
+              'kuehlen': 'Kühlen', 'verdichter': 'Verdichter läuft',
+              'heizanforderung': 'Heizanforderung', 'ww_anforderung': 'WW-Anforderung',
+              'sommer': 'Sommerbetrieb', 'standby': 'Standby'}
+             .get(states('sensor.wpd_status_code'), 'Standby') }}
+        icon: >
+          {{ {'stoerung': 'mdi:alert-circle', 'evu_sperre': 'mdi:transmission-tower-off',
+              'aus': 'mdi:power-off', 'abtauen': 'mdi:snowflake-melt',
+              'warmwasser': 'mdi:water-boiler', 'heizen': 'mdi:radiator',
+              'kuehlen': 'mdi:snowflake', 'verdichter': 'mdi:heat-pump',
+              'heizanforderung': 'mdi:radiator-disabled', 'ww_anforderung': 'mdi:water-boiler-off',
+              'sommer': 'mdi:weather-sunny', 'standby': 'mdi:sleep'}
+             .get(states('sensor.wpd_status_code'), 'mdi:heat-pump-outline') }}
+        attributes:
+          code: "{{ states('sensor.wpd_status_code') }}"
+        availability: "{{ has_value('sensor.wpd_status_code') }}"
+
+  # Zeitpunkt der letzten Heizanforderung und Beginn der Heizperiode.
+  # Trigger-Template-Sensoren werden nach einem Neustart wiederhergestellt.
+  - triggers:
+      - trigger: state
+        entity_id: binary_sensor.brotje_neo_heizen
+        from: "off"
+        to: "on"
+    sensor:
+      - name: "WPD Heizanforderung zuletzt gestartet"
+        unique_id: wpd_heizanforderung_zuletzt
+        device_class: timestamp
+        icon: mdi:radiator
+        state: "{{ now().isoformat() }}"
+      # Neue Heizperiode, wenn die letzte Heizanforderung länger als
+      # pause_tage zurückliegt (oder noch keine bekannt ist).
+      - name: "WPD Heizperiode gestartet"
+        unique_id: wpd_heizperiode_gestartet
+        device_class: timestamp
+        icon: mdi:calendar-start
+        state: >
+          {% set pause_tage = 14 %}
+          {% set last = as_datetime(this.attributes.get('letzte_anforderung', '')) %}
+          {% if this.state in ('unknown', 'unavailable', none) or last is none
+                or (now() - last).total_seconds() > pause_tage * 86400 %}
+            {{ now().isoformat() }}
+          {% else %}
+            {{ this.state }}
+          {% endif %}
+        attributes:
+          letzte_anforderung: "{{ now().isoformat() }}"
+
+  - triggers:
+      - trigger: state
+        entity_id: binary_sensor.wpd_verdichter_heizen
+        from: "off"
+        to: "on"
+    sensor:
+      - name: "WPD Verdichter Heizen zuletzt gestartet"
+        unique_id: wpd_verdichter_heizen_zuletzt
+        device_class: timestamp
+        icon: mdi:heat-pump
+        state: "{{ now().isoformat() }}"
+
+# Laufzeiten. Die "heute"-Sensoren haben state_class measurement; das
+# 30-Tage-Diagramm nimmt deren Tagesmaximum aus der Langzeitstatistik.
+sensor:
+  - platform: history_stats
+    name: "WPD Heizanforderung heute"
+    unique_id: wpd_heizanforderung_heute
+    entity_id: binary_sensor.brotje_neo_heizen
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "WPD Heizanforderung gestern"
+    unique_id: wpd_heizanforderung_gestern
+    entity_id: binary_sensor.brotje_neo_heizen
+    state: "on"
+    type: time
+    end: "{{ today_at() }}"
+    duration: {hours: 24}
+  - platform: history_stats
+    name: "WPD Heizanforderung 7 Tage"
+    unique_id: wpd_heizanforderung_7_tage
+    entity_id: binary_sensor.brotje_neo_heizen
+    state: "on"
+    type: time
+    end: "{{ now() }}"
+    duration: {days: 7}
+
+  - platform: history_stats
+    name: "WPD Verdichterlaufzeit heute"
+    unique_id: wpd_verdichterlaufzeit_heute
+    entity_id: binary_sensor.brotje_neo_verdichter
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "WPD Verdichterlaufzeit gestern"
+    unique_id: wpd_verdichterlaufzeit_gestern
+    entity_id: binary_sensor.brotje_neo_verdichter
+    state: "on"
+    type: time
+    end: "{{ today_at() }}"
+    duration: {hours: 24}
+  - platform: history_stats
+    name: "WPD Verdichterlaufzeit 7 Tage"
+    unique_id: wpd_verdichterlaufzeit_7_tage
+    entity_id: binary_sensor.brotje_neo_verdichter
+    state: "on"
+    type: time
+    end: "{{ now() }}"
+    duration: {days: 7}
+
+  - platform: history_stats
+    name: "WPD Verdichterlaufzeit Heizen heute"
+    unique_id: wpd_verdichterlaufzeit_heizen_heute
+    entity_id: binary_sensor.wpd_verdichter_heizen
+    state: "on"
+    type: time
+    start: "{{ today_at() }}"
+    end: "{{ now() }}"
+  - platform: history_stats
+    name: "WPD Verdichterlaufzeit Heizen gestern"
+    unique_id: wpd_verdichterlaufzeit_heizen_gestern
+    entity_id: binary_sensor.wpd_verdichter_heizen
+    state: "on"
+    type: time
+    end: "{{ today_at() }}"
+    duration: {hours: 24}
+  - platform: history_stats
+    name: "WPD Verdichterlaufzeit Heizen 7 Tage"
+    unique_id: wpd_verdichterlaufzeit_heizen_7_tage
+    entity_id: binary_sensor.wpd_verdichter_heizen
+    state: "on"
+    type: time
+    end: "{{ now() }}"
+    duration: {days: 7}
+
+input_number:
+  wpd_heizgrenze:
+    name: "WP Heizgrenze (Wert vom Bedienteil)"
+    icon: mdi:thermometer-lines
+    min: 5
+    max: 25
+    step: 0.5
+    initial: 15
+    unit_of_measurement: "°C"
+    mode: box

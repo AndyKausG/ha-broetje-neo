@@ -39,6 +39,13 @@ def test_uint32_zero_invalid_and_sentinel() -> None:
     assert r.decode(r.P_EL, {70: 0xFFFF, 71: 0xFFFF}) is None
 
 
+def test_operating_hours_zero_invalid() -> None:
+    # a transient 0 must not look like a counter reset in the statistics
+    assert r.decode(r.HOURS_DHW, {42: 0, 43: 0}) is None
+    assert r.decode(r.HOURS_HEATING, {44: 0, 45: 0}) is None
+    assert r.decode(r.HOURS_DHW, {42: 0, 43: 5}) == 5
+
+
 def test_missing_register() -> None:
     assert r.decode(r.HOURS_DHW, {}) is None
     assert r.raw_value(r.HOURS_DHW, {42: 0}) is None

@@ -180,6 +180,38 @@
           "main_switch_off": "Hauptschalter aus"
         }
       },
+      "mkr1_operating_mode_status": {
+        "name": "MKR1 Betriebsart Status",
+        "state": {
+          "off": "Aus",
+          "auto": "Automatik",
+          "cooling": "Kühlen",
+          "summer": "Sommer",
+          "continuous": "Dauerbetrieb",
+          "setback": "Absenken",
+          "holiday": "Urlaub",
+          "party": "Party",
+          "bake_out": "Ausheizen",
+          "evu_lock": "EVU-Sperre",
+          "main_switch_off": "Hauptschalter aus"
+        }
+      },
+      "mkr2_operating_mode_status": {
+        "name": "MKR2 Betriebsart Status",
+        "state": {
+          "off": "Aus",
+          "auto": "Automatik",
+          "cooling": "Kühlen",
+          "summer": "Sommer",
+          "continuous": "Dauerbetrieb",
+          "setback": "Absenken",
+          "holiday": "Urlaub",
+          "party": "Party",
+          "bake_out": "Ausheizen",
+          "evu_lock": "EVU-Sperre",
+          "main_switch_off": "Hauptschalter aus"
+        }
+      },
       "flow_return_spread": {
         "name": "Spreizung VL/RL"
       },

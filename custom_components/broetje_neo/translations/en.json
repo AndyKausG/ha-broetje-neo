@@ -180,6 +180,38 @@
           "main_switch_off": "Main switch off"
         }
       },
+      "mkr1_operating_mode_status": {
+        "name": "MKR1 operating mode status",
+        "state": {
+          "off": "Off",
+          "auto": "Auto",
+          "cooling": "Cooling",
+          "summer": "Summer",
+          "continuous": "Continuous",
+          "setback": "Setback",
+          "holiday": "Holiday",
+          "party": "Party",
+          "bake_out": "Bake-out",
+          "evu_lock": "Utility lock",
+          "main_switch_off": "Main switch off"
+        }
+      },
+      "mkr2_operating_mode_status": {
+        "name": "MKR2 operating mode status",
+        "state": {
+          "off": "Off",
+          "auto": "Auto",
+          "cooling": "Cooling",
+          "summer": "Summer",
+          "continuous": "Continuous",
+          "setback": "Setback",
+          "holiday": "Holiday",
+          "party": "Party",
+          "bake_out": "Bake-out",
+          "evu_lock": "Utility lock",
+          "main_switch_off": "Main switch off"
+        }
+      },
       "flow_return_spread": {
         "name": "Flow/return spread"
       },
