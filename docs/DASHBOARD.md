@@ -6,8 +6,10 @@ Hauptfrage in der Übergangszeit: **Hat die Heizung schon eingeschaltet?**
 | Datei | Inhalt |
 |-------|--------|
 | `extras/dashboard/broetje-neo-dashboard.yaml` | Dashboard (Ansicht „Abschnitte“, 4 Spalten) |
-| `extras/packages/broetje_neo_dashboard.yaml` | Status, Laufzeiten, Heizstart, Heizperiode, Heizgrenze (`wpd_*`) |
-| `extras/packages/broetje_neo_analytics.yaml` | Tages-Arbeitszahl u.a. (`wpa_*`), siehe README |
+
+Alle Werte liefert die Integration (ab 0.6.0). Ein Package ist nicht nötig;
+`extras/packages/broetje_neo_analytics.yaml` bleibt optional für PV-Auswertung und
+Automationen (siehe README).
 
 ## Voraussetzungen
 
@@ -18,16 +20,9 @@ HACS → Frontend:
 | ApexCharts Card | `RomRider/apexcharts-card` | 30-Tage- und 24-h-Diagramm |
 | button-card | `custom-cards/button-card` | Anlagenschema mit Animation |
 
-Packages nach `/config/packages/` kopieren:
-
-```yaml
-homeassistant:
-  packages: !include_dir_named packages
-```
-
-Recorder: Das 30-Tage-Diagramm liest die **Langzeitstatistik** (Tagesmaximum der
-„heute“-Laufzeiten, Tagesmittel Außentemperatur). Es braucht daher kein
-`purge_keep_days` > 10, füllt sich aber erst ab Installation des Packages.
+Das 30-Tage-Diagramm liest die **Langzeitstatistik** (Tageszuwachs der „heute“-Zähler,
+Tagesmittel Außentemperatur). Es braucht kein `purge_keep_days` > 10, füllt sich aber
+erst ab der Version 0.6.0.
 
 Dashboard anlegen (die Datei ist ein komplettes Dashboard, **keine Karte**; im Dialog
 „Karte anpassen“ kommt „No card type configured“):
@@ -36,53 +31,54 @@ Dashboard anlegen (die Datei ist ein komplettes Dashboard, **keine Karte**; im D
 2. Dashboard öffnen → Stift (Bearbeiten) → ⋮ → *Rohkonfigurationseditor*
 3. Gesamten Inhalt durch die Datei ersetzen → Speichern
 
-Kacheln mit „Entität nicht gefunden“ bei `wpd_*` / `wpa_*`: Packages nicht geladen.
-Prüfen unter *Entwicklerwerkzeuge → YAML → Konfiguration prüfen*, danach HA neu starten.
-
 Heizgrenze: über Modbus nicht lesbar. Der Effizienz-Check lernt sie aus dem Betrieb
 (`sensor.brotje_neo_heizgrenze_beobachtet`, siehe `docs/TECHNIK.md` 5.2). Optional den
 Wert vom Bedienteil in den Optionen der Integration eintragen („Heizgrenze laut
 Bedienteil“) -> `sensor.brotje_neo_heizgrenze_eingestellt`. Beide erscheinen als Linie
 im 30-Tage-Diagramm; liegt die gelernte mehr als 1 K darüber, meldet der Effizienz-Check das.
 
-## Status-Logik (`sensor.wpd_status`)
+## Status (`sensor.brotje_neo_status`)
 
-Erste zutreffende Zeile gewinnt. `sensor.wpd_status_code` liefert den
-sprachneutralen Code, `sensor.wpd_status` den Anzeigetext.
+Erste zutreffende Zeile gewinnt. Der Zustand ist ein sprachneutraler Schlüssel, HA
+zeigt den übersetzten Text.
 
-| Prio | Code | Anzeige | Bedingung |
-|------|------|---------|-----------|
-| 1 | `stoerung` | Störung | Störung an |
-| 2 | `evu_sperre` | EVU-Sperre | EVU-Freigabe aus oder Betriebsart `evu_lock` |
-| 3 | `aus` | Aus | Betriebsart `off` / `main_switch_off` |
-| 4 | `abtauen` | Abtauen | 4-Wege-Ventil an, keine Kühlanforderung, Kühlen passiv aus |
-| 5 | `warmwasser` | Warmwasser | Verdichter an + Anforderung WW |
-| 6 | `heizen` | Heizen | Verdichter an + Anforderung Heizen |
-| 7 | `kuehlen` | Kühlen | Anforderung Kühlen oder Kühlen passiv |
-| 8 | `verdichter` | Verdichter läuft | Verdichter an ohne Anforderung (PV, extern) |
-| 9 | `heizanforderung` | Heizanforderung | Anforderung Heizen, Verdichter aus (Puffer reicht) |
-| 10 | `ww_anforderung` | WW-Anforderung | Anforderung WW, Verdichter aus |
-| 11 | `sommer` | Sommerbetrieb | Betriebsart `summer` |
-| 12 | `standby` | Standby | sonst |
+| Prio | Schlüssel | Anzeige | Bedingung |
+|------|-----------|---------|-----------|
+| 1 | `fault` | Störung | Störung an |
+| 2 | `price_lock` | Preissperre | eigene Preissperre aktiv |
+| 3 | `utility_lock` | EVU-Sperre | EVU-Freigabe aus oder Betriebsart `evu_lock` |
+| 4 | `off` | Aus | Betriebsart `off` / `main_switch_off` |
+| 5 | `defrost` | Abtauen | 4-Wege-Ventil an, keine Kühlanforderung, Kühlen passiv aus |
+| 6 | `hot_water` | Warmwasser | Verdichter an + Anforderung WW |
+| 7 | `heating` | Heizen | Verdichter an + Anforderung Heizen |
+| 8 | `cooling` | Kühlen | Anforderung Kühlen oder Kühlen passiv |
+| 9 | `compressor_running` | Verdichter läuft | Verdichter an ohne Anforderung (PV, extern) |
+| 10 | `heating_demand` | Heizanforderung | Anforderung Heizen, Verdichter aus (Puffer reicht) |
+| 11 | `dhw_demand` | WW-Anforderung | Anforderung WW, Verdichter aus |
+| 12 | `summer` | Sommerbetrieb | Betriebsart `summer` |
+| 13 | `standby` | Standby | sonst |
 
-## Weitere Hilfssensoren
+## Laufzeiten, Tageswerte, Heizstart
+
+Aus den Stundenwerten des Effizienz-Checks (überstehen einen Neustart, 14 Tage).
+Tagesgrenze = Mitternacht in der Zeitzone von HA.
 
 | Entität | Bedeutung |
 |---------|-----------|
-| `binary_sensor.wpd_verdichter_heizen` | Verdichter an **und** Anforderung Heizen |
-| `sensor.wpd_heizanforderung_zuletzt_gestartet` | Zeitpunkt letzte Heizanforderung (timestamp) |
-| `sensor.wpd_verdichter_heizen_zuletzt_gestartet` | Zeitpunkt letzter Verdichterstart fürs Heizen |
-| `sensor.wpd_heizperiode_gestartet` | Erste Heizanforderung nach > 14 Tagen Pause (Wert `pause_tage` im Package) |
-| `sensor.wpd_heizanforderung_{heute,gestern,7_tage}` | history_stats, h |
-| `sensor.wpd_verdichterlaufzeit_{heute,gestern,7_tage}` | history_stats, h |
-| `sensor.wpd_verdichterlaufzeit_heizen_{heute,gestern,7_tage}` | history_stats, h |
-
-Trigger-Template-Sensoren überstehen einen Neustart (Zustand wird wiederhergestellt).
+| `binary_sensor.brotje_neo_verdichter_heizt` | Verdichter an **und** Anforderung Heizen |
+| `sensor.brotje_neo_heizanforderung_zuletzt_gestartet` | Zeitpunkt letzte Heizanforderung |
+| `sensor.brotje_neo_verdichter_heizen_zuletzt_gestartet` | Zeitpunkt letzter Verdichterstart fürs Heizen |
+| `sensor.brotje_neo_heizperiode_gestartet` | Erste Heizanforderung nach > 14 Tagen Pause |
+| `sensor.brotje_neo_heizanforderung_{heute,gestern,7_tage}` | h |
+| `sensor.brotje_neo_verdichterlaufzeit_{heute,gestern,7_tage}` | h |
+| `sensor.brotje_neo_verdichterlaufzeit_heizen_{heute,gestern,7_tage}` | h |
+| `sensor.brotje_neo_strom_heute` / `…_warme_heute` | kWh, aus der Momentanleistung |
+| `sensor.brotje_neo_arbeitszahl_heute` | Wärme / Strom heute, ab 0,2 kWh Strom |
 
 ## Entitätszuordnung
 
 Annahme: Gerätename „Brötje NEO“, HA-Sprache Deutsch → Präfix `brotje_neo_`.
-Anderer Gerätename: in beiden YAML-Dateien `brotje_neo_` per Suchen/Ersetzen ändern.
+Anderer Gerätename: in der Dashboard-Datei `brotje_neo_` per Suchen/Ersetzen ändern.
 Die IDs werden in `tests/test_package.py` gegen die Integration geprüft.
 
 | Anzeige | Entität | Reg. |

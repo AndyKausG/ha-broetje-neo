@@ -126,6 +126,18 @@ Einheiten nach RKM Tab. 4. Alle Messwerte haben `state_class: measurement`, Zäh
 | 100 | Betriebsart 0–10 | Enum | Betriebsart Status (alle Werte, inkl. 8 Ausheizen, 9 EVU-Sperre, 10 Hauptschalter aus) |
 | 107 / 112 | Betriebsart MKR1 / MKR2 | Enum | MKR1/MKR2 Betriebsart Status, nur lesend, auch ohne Schreiboption (MKR2 deaktiviert) |
 
+Betriebsübersicht (aus Registern bzw. den Stundenwerten des Effizienz-Checks):
+
+| Entität | Quelle |
+|---------|--------|
+| Status | `advisor.plant_state`: Störung > Preissperre > EVU-Sperre (R32 = 0 / R100 = 9) > Aus > Abtauen (R27, nicht bei Kühlen) > WW / Heizen (R25 + R41) > Kühlen > Verdichter läuft > Heiz-/WW-Anforderung ohne Verdichter > Sommer (R100 = 3) > Standby |
+| Verdichter heizt | R25 ≠ 0 und R41 = 20 |
+| Heizanforderung / Verdichter / Verdichter Heizen heute, gestern, 7 Tage | Zeitsumme je Stunde (Zustand zu Beginn jedes Abfrageintervalls, Lücken > 120 s zählen nicht) |
+| Strom / Wärme heute | Integration R70 (W) bzw. R74 (kW) über die Zeit |
+| Arbeitszahl heute | Wärme heute / Strom heute, ab 0,2 kWh |
+| Heizanforderung zuletzt gestartet, Heizperiode gestartet | Flanke R41 → 20; neue Heizperiode nach > 14 Tagen ohne Heizanforderung |
+| Verdichter Heizen zuletzt gestartet | Flanke „Verdichter heizt“ |
+
 Abgeleitete Sensoren (nur Rechnung, keine Register):
 
 | Entität | Formel |

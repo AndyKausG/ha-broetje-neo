@@ -20,6 +20,7 @@ from homeassistant.helpers import (
 )
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 from pymodbus.client import AsyncModbusTcpClient
 from pymodbus.exceptions import ModbusException
 
@@ -141,6 +142,7 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         self._store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.advisor")
         self.figures: dict[str, float | None] = {}
         self.heat_limit_detail: dict[str, Any] = {}
+        self.daily: dict[str, Any] = {}
         self.hints: list[advisor.Hint] = []
         self.circuit_setting: str = opts.get(CONF_HEATING_CIRCUIT, DEFAULT_HEATING_CIRCUIT)
         self.room_grouping: str = opts.get(CONF_ROOM_GROUPING, DEFAULT_ROOM_GROUPING)
@@ -308,12 +310,17 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
                 e_el_heat=val(r.E_EL_HEATING),
                 e_th_dhw=val(r.E_TH_DHW),
                 e_el_dhw=val(r.E_EL_DHW),
+                p_el=val(r.P_EL),
+                p_th=val(r.P_TH),
             )
         )
         self._store.async_delay_save(self.tracker.to_dict, 300)
         self.data_days = round(self.tracker.data_days(now), 1)
         self.figures = self.tracker.figures(now)
         self.heat_limit_detail = self.tracker.heat_limit_detail(now)
+        today = dt_util.start_of_local_day()
+        yesterday = dt_util.start_of_local_day(today - timedelta(hours=12))
+        self.daily = self.tracker.daily(now, today.timestamp(), yesterday.timestamp())
         ctx = advisor.Context(
             heating_system=self.heating_system,
             room_setpoint=room_set,

@@ -41,12 +41,12 @@ def _async_remove_disallowed_entities(
     from .binary_sensor import BINARY_SENSORS
     from .number import NUMBERS
     from .select import SELECTS
-    from .sensor import ADVISOR_SENSORS, SENSORS
+    from .sensor import ADVISOR_SENSORS, OPERATION_SENSORS, SENSORS
     from .switch import PRICE_LOCK
 
     known = (
         {("binary_sensor", d.key) for d in BINARY_SENSORS}
-        | {("sensor", d.key) for d in SENSORS + ADVISOR_SENSORS}
+        | {("sensor", d.key) for d in SENSORS + OPERATION_SENSORS + ADVISOR_SENSORS}
         | {("number", d.key) for d in NUMBERS}
         | {("select", d.key) for d in SELECTS}
         | {("switch", PRICE_LOCK.key)}

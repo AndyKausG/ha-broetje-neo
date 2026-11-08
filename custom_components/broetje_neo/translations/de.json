@@ -294,6 +294,69 @@
       "heating_limit_observed": {
         "name": "Heizgrenze beobachtet"
       },
+      "plant_state": {
+        "name": "Status",
+        "state": {
+          "fault": "Störung",
+          "price_lock": "Preissperre",
+          "utility_lock": "EVU-Sperre",
+          "off": "Aus",
+          "defrost": "Abtauen",
+          "hot_water": "Warmwasser",
+          "heating": "Heizen",
+          "cooling": "Kühlen",
+          "compressor_running": "Verdichter läuft",
+          "heating_demand": "Heizanforderung",
+          "dhw_demand": "WW-Anforderung",
+          "summer": "Sommerbetrieb",
+          "standby": "Standby"
+        }
+      },
+      "heating_demand_last_start": {
+        "name": "Heizanforderung zuletzt gestartet"
+      },
+      "compressor_heating_last_start": {
+        "name": "Verdichter Heizen zuletzt gestartet"
+      },
+      "heating_season_start": {
+        "name": "Heizperiode gestartet"
+      },
+      "heating_demand_today": {
+        "name": "Heizanforderung heute"
+      },
+      "heating_demand_yesterday": {
+        "name": "Heizanforderung gestern"
+      },
+      "heating_demand_7d": {
+        "name": "Heizanforderung 7 Tage"
+      },
+      "compressor_runtime_today": {
+        "name": "Verdichterlaufzeit heute"
+      },
+      "compressor_runtime_yesterday": {
+        "name": "Verdichterlaufzeit gestern"
+      },
+      "compressor_runtime_7d": {
+        "name": "Verdichterlaufzeit 7 Tage"
+      },
+      "compressor_heating_runtime_today": {
+        "name": "Verdichterlaufzeit Heizen heute"
+      },
+      "compressor_heating_runtime_yesterday": {
+        "name": "Verdichterlaufzeit Heizen gestern"
+      },
+      "compressor_heating_runtime_7d": {
+        "name": "Verdichterlaufzeit Heizen 7 Tage"
+      },
+      "electrical_energy_today": {
+        "name": "Strom heute"
+      },
+      "thermal_energy_today": {
+        "name": "Wärme heute"
+      },
+      "cop_today": {
+        "name": "Arbeitszahl heute"
+      },
       "heating_limit_setting": {
         "name": "Heizgrenze eingestellt"
       },
@@ -346,6 +409,9 @@
       },
       "grid_control": {
         "name": "Netzbetreiber steuert"
+      },
+      "compressor_heating": {
+        "name": "Verdichter heizt"
       }
     },
     "select": {

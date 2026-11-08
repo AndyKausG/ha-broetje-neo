@@ -11,6 +11,22 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent / "custom_components" / "broetje_neo"
 
+PLANT_STATES = {
+    "fault": ("Fault", "Störung"),
+    "price_lock": ("Price lock", "Preissperre"),
+    "utility_lock": ("Utility lock", "EVU-Sperre"),
+    "off": ("Off", "Aus"),
+    "defrost": ("Defrost", "Abtauen"),
+    "hot_water": ("Hot water", "Warmwasser"),
+    "heating": ("Heating", "Heizen"),
+    "cooling": ("Cooling", "Kühlen"),
+    "compressor_running": ("Compressor running", "Verdichter läuft"),
+    "heating_demand": ("Heating demand", "Heizanforderung"),
+    "dhw_demand": ("Hot water demand", "WW-Anforderung"),
+    "summer": ("Summer mode", "Sommerbetrieb"),
+    "standby": ("Standby", "Standby"),
+}
+
 MODES = {
     "off": ("Off", "Aus"),
     "auto": ("Auto", "Automatik"),
@@ -133,6 +149,40 @@ ENTITIES: dict[str, dict[str, tuple[str, str]]] = {
         "heating_spread_7d": ("Heating spread 7 days", "Spreizung Heizen 7 Tage"),
         "room_avg_7d": ("Room temperature 7 days", "Raumtemperatur 7 Tage"),
         "heating_limit_observed": ("Heating limit observed", "Heizgrenze beobachtet"),
+        "plant_state": ("State", "Status"),
+        "heating_demand_last_start": (
+            "Heating demand last started",
+            "Heizanforderung zuletzt gestartet",
+        ),
+        "compressor_heating_last_start": (
+            "Compressor heating last started",
+            "Verdichter Heizen zuletzt gestartet",
+        ),
+        "heating_season_start": ("Heating season started", "Heizperiode gestartet"),
+        "heating_demand_today": ("Heating demand today", "Heizanforderung heute"),
+        "heating_demand_yesterday": ("Heating demand yesterday", "Heizanforderung gestern"),
+        "heating_demand_7d": ("Heating demand 7 days", "Heizanforderung 7 Tage"),
+        "compressor_runtime_today": ("Compressor run time today", "Verdichterlaufzeit heute"),
+        "compressor_runtime_yesterday": (
+            "Compressor run time yesterday",
+            "Verdichterlaufzeit gestern",
+        ),
+        "compressor_runtime_7d": ("Compressor run time 7 days", "Verdichterlaufzeit 7 Tage"),
+        "compressor_heating_runtime_today": (
+            "Compressor heating today",
+            "Verdichterlaufzeit Heizen heute",
+        ),
+        "compressor_heating_runtime_yesterday": (
+            "Compressor heating yesterday",
+            "Verdichterlaufzeit Heizen gestern",
+        ),
+        "compressor_heating_runtime_7d": (
+            "Compressor heating 7 days",
+            "Verdichterlaufzeit Heizen 7 Tage",
+        ),
+        "electrical_energy_today": ("Electrical energy today", "Strom heute"),
+        "thermal_energy_today": ("Thermal energy today", "Wärme heute"),
+        "cop_today": ("SPF today", "Arbeitszahl heute"),
         "heating_limit_setting": ("Heating limit set", "Heizgrenze eingestellt"),
         "spf_30d": ("SPF 30 days", "Arbeitszahl 30 Tage"),
         "spf_heating_30d": ("SPF heating 30 days", "Arbeitszahl Heizen 30 Tage"),
@@ -152,6 +202,7 @@ ENTITIES: dict[str, dict[str, tuple[str, str]]] = {
         "demand_dhw": ("Hot water", "Warmwasser"),
         "demand_cooling": ("Cooling", "Kühlen"),
         "grid_control": ("Grid operator control", "Netzbetreiber steuert"),
+        "compressor_heating": ("Compressor heating", "Verdichter heizt"),
     },
     "select": {
         "operating_mode": ("Operating mode", "Betriebsart"),
@@ -268,6 +319,8 @@ def build(lang: str) -> dict:
                 entry["state"] = {k: v[idx] for k, v in MODES.items()}
             if key == "demand":
                 entry["state"] = {k: v[idx] for k, v in DEMANDS.items()}
+            if key == "plant_state":
+                entry["state"] = {k: v[idx] for k, v in PLANT_STATES.items()}
             if key == "efficiency_check":
                 entry["state"] = {k: v[idx] for k, v in CHECK.items()}
             entity[platform][key] = entry

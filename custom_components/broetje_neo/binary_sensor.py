@@ -67,6 +67,16 @@ BINARY_SENSORS: tuple[BroetjeBinaryDescription, ...] = (
     BroetjeBinaryDescription(key="demand_dhw", is_on_fn=_demand(30)),
     BroetjeBinaryDescription(key="demand_cooling", is_on_fn=_demand(10)),
     BroetjeBinaryDescription(
+        key="compressor_heating",
+        device_class=BinarySensorDeviceClass.RUNNING,
+        icon="mdi:heat-pump",
+        is_on_fn=lambda c: (
+            None
+            if c.raw(r.HEAT_PUMP_RUNNING) is None or c.raw(r.DEMAND) is None
+            else c.raw(r.HEAT_PUMP_RUNNING) != 0 and c.raw(r.DEMAND) == 20
+        ),
+    ),
+    BroetjeBinaryDescription(
         key="grid_control",
         icon="mdi:transmission-tower",
         is_on_fn=lambda c: c.grid_control_active if c.data is not None else None,

@@ -60,6 +60,9 @@ zuverlässig läuft.
   Temperaturhub, gemessene Heizkurve, **gelernte Heizgrenze**, Starts und Laufzeiten,
   Arbeitszahl 30 Tage
 - **Effizienz-Check** mit konkreten Verbesserungsvorschlägen (siehe unten)
+- **Status auf einen Blick**: Heizen, Heizanforderung (Puffer reicht noch), Warmwasser,
+  Abtauen, Sperre, Sommerbetrieb …; Laufzeiten heute/gestern/7 Tage, Strom, Wärme und
+  Arbeitszahl heute, letzter Heizstart, Beginn der Heizperiode
 - **Zustände**: Verdichter, Pumpen, Ventilator, Abtauen, Störung, EVU-Freigabe,
   aktuelle Anforderung (Heizen/Warmwasser/Kühlen), Betriebsart der Anlage und des
   Mischerkreises (z. B. Sommer/Automatik je Heizkreis)
@@ -346,7 +349,6 @@ Anzeige: `binary_sensor.…_netzbetreiber_steuert` und
 | `extras/lovelace/heat-pump-card-mischer.yaml` | Anlagenbild für Anlagen mit Puffer + Mischerkreis (siehe „Dashboard: Welche Karte passt zu meiner Anlage?“) |
 | `extras/lovelace/effizienz-check.yaml` | Effizienz-Check mit Hinweisen und Kennzahlen |
 | `extras/dashboard/broetje-neo-dashboard.yaml` | Wandtablet-Dashboard (Puffer + MKR1): Status, „Heizt sie schon?“, Laufzeiten, 30-Tage-Übergangszeit, 24-h-Verlauf, animiertes Anlagenschema. Details: [`docs/DASHBOARD.md`](docs/DASHBOARD.md) |
-| `extras/packages/broetje_neo_dashboard.yaml` | Hilfssensoren dazu: Status, Heizstart, Heizperiode, Laufzeiten heute/gestern/7 Tage |
 
 **Package einbinden:** Datei nach `/config/packages/` kopieren, in
 `configuration.yaml` eintragen:

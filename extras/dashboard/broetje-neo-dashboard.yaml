@@ -11,12 +11,11 @@
 # Einstellungen -> Dashboards -> Dashboard hinzufügen -> "Neu von Grund auf"
 # -> Dashboard öffnen -> Stift (Bearbeiten) -> ⋮ -> Rohkonfigurationseditor
 # -> gesamten Inhalt durch diese Datei ersetzen -> Speichern.
-# Vorher beide Packages laden, sonst "Entität nicht gefunden" bei wpd_*/wpa_*.
 #
 # Voraussetzungen (Details: docs/DASHBOARD.md)
+#   Integration broetje_neo ab 0.6.0 (Status, Laufzeiten, Tageswerte, Heizgrenze)
 #   HACS Frontend: apexcharts-card (RomRider), button-card (custom-cards)
-#   Packages:      extras/packages/broetje_neo_dashboard.yaml  (wpd_*)
-#                  extras/packages/broetje_neo_analytics.yaml  (wpa_*, Tages-Arbeitszahl)
+#   Kein Package nötig.
 #
 # ============================================================================
 # ENTITÄTEN-ZUORDNUNG
@@ -50,7 +49,7 @@ views:
     max_columns: 4
     badges:
       - type: entity
-        entity: sensor.wpd_status
+        entity: sensor.brotje_neo_status
         show_name: false
         show_icon: true
         show_state: true
@@ -75,7 +74,7 @@ views:
             entity: binary_sensor.brotje_neo_evu_freigabe
             state: "off"
       - type: entity
-        entity: sensor.wpd_heizperiode_gestartet
+        entity: sensor.brotje_neo_heizperiode_gestartet
         name: Heizperiode seit
         show_name: true
     sections:
@@ -86,7 +85,7 @@ views:
             heading: Heizt sie schon?
             icon: mdi:radiator
           - type: tile
-            entity: sensor.wpd_status
+            entity: sensor.brotje_neo_status
             name: Status
             grid_options: {columns: full}
           - type: tile
@@ -103,15 +102,15 @@ views:
             name: Puffer laden
             color: orange
           - type: tile
-            entity: binary_sensor.wpd_verdichter_heizen
+            entity: binary_sensor.brotje_neo_verdichter_heizt
             name: Verdichter heizt
             icon: mdi:heat-pump
             color: red
           - type: tile
-            entity: sensor.wpd_heizanforderung_zuletzt_gestartet
+            entity: sensor.brotje_neo_heizanforderung_zuletzt_gestartet
             name: Anforderung zuletzt
           - type: tile
-            entity: sensor.wpd_verdichter_heizen_zuletzt_gestartet
+            entity: sensor.brotje_neo_verdichter_heizen_zuletzt_gestartet
             name: Verdichter zuletzt
           - type: tile
             entity: binary_sensor.brotje_neo_warmwasser
@@ -174,7 +173,7 @@ views:
             icon: mdi:gauge
             color: green
           - type: tile
-            entity: sensor.wpa_arbeitszahl_heute
+            entity: sensor.brotje_neo_arbeitszahl_heute
             name: Arbeitszahl heute
             icon: mdi:calendar-today
             color: green
@@ -220,34 +219,34 @@ views:
             heading: Laufzeiten
             icon: mdi:timer-outline
           - type: tile
-            entity: sensor.wpd_heizanforderung_heute
+            entity: sensor.brotje_neo_heizanforderung_heute
             name: Anforderung heute
             color: amber
           - type: tile
-            entity: sensor.wpd_verdichterlaufzeit_heizen_heute
+            entity: sensor.brotje_neo_verdichterlaufzeit_heizen_heute
             name: Verdichter Heizen heute
             color: red
           - type: tile
-            entity: sensor.wpd_heizanforderung_gestern
+            entity: sensor.brotje_neo_heizanforderung_gestern
             name: Anforderung gestern
             color: amber
           - type: tile
-            entity: sensor.wpd_verdichterlaufzeit_heizen_gestern
+            entity: sensor.brotje_neo_verdichterlaufzeit_heizen_gestern
             name: Verdichter Heizen gestern
             color: red
           - type: tile
-            entity: sensor.wpd_heizanforderung_7_tage
+            entity: sensor.brotje_neo_heizanforderung_7_tage
             name: Anforderung 7 Tage
             color: amber
           - type: tile
-            entity: sensor.wpd_verdichterlaufzeit_heizen_7_tage
+            entity: sensor.brotje_neo_verdichterlaufzeit_heizen_7_tage
             name: Verdichter Heizen 7 Tage
             color: red
           - type: tile
-            entity: sensor.wpd_verdichterlaufzeit_heute
+            entity: sensor.brotje_neo_verdichterlaufzeit_heute
             name: Verdichter gesamt heute
           - type: tile
-            entity: sensor.wpd_verdichterlaufzeit_7_tage
+            entity: sensor.brotje_neo_verdichterlaufzeit_7_tage
             name: Verdichter gesamt 7 Tage
 
       # ------------------------------------------------------------- Schema
@@ -269,8 +268,7 @@ views:
             show_state: false
             tap_action: {action: none}
             triggers_update:
-              - sensor.wpd_status
-              - sensor.wpd_status_code
+              - sensor.brotje_neo_status
               - binary_sensor.brotje_neo_heizkreispumpe
               - binary_sensor.brotje_neo_pufferladepumpe
               - binary_sensor.brotje_neo_ventilator
@@ -312,32 +310,33 @@ views:
                     const x = Math.max(0, Math.min(1, (t - 20) / 40));
                     return 'hsl(' + Math.round(220 - 220 * x) + ',75%,50%)';
                   };
-                  const code = st('sensor.wpd_status_code');
-                  const pkg = !!states['sensor.wpd_status_code'];
-                  const label = pkg ? st('sensor.wpd_status') : 'Status fehlt';
-                  const COL = {stoerung: '#db4437', evu_sperre: '#9c27b0', aus: '#757575',
-                    abtauen: '#03a9f4', warmwasser: '#ff9800', heizen: '#e4572e',
-                    kuehlen: '#2196f3', verdichter: '#e4572e', heizanforderung: '#ffb300',
-                    ww_anforderung: '#ffb300', sommer: '#fbc02d'};
+                  const code = st('sensor.brotje_neo_status');
+                  const sObj = states['sensor.brotje_neo_status'];
+                  const label = sObj ? hass.formatEntityState(sObj) : 'Status fehlt';
+                  const COL = {fault: '#db4437', price_lock: '#9c27b0', utility_lock: '#9c27b0',
+                    off: '#757575', defrost: '#03a9f4', hot_water: '#ff9800', heating: '#e4572e',
+                    cooling: '#2196f3', compressor_running: '#e4572e', heating_demand: '#ffb300',
+                    dhw_demand: '#ffb300', summer: '#fbc02d'};
                   const TXT = {
-                    heizen: 'Die Wärmepumpe holt Wärme aus der Außenluft und lädt den Heizpuffer.',
-                    heizanforderung: 'Das Haus braucht Wärme. Der Puffer ist noch warm genug, die Wärmepumpe wartet.',
-                    warmwasser: 'Die Wärmepumpe erwärmt gerade das Warmwasser.',
-                    ww_anforderung: 'Warmwasser wird angefordert. Die Wärmepumpe wartet noch (z. B. Mindestpause).',
-                    abtauen: 'Das Außengerät taut Eis ab und nutzt dafür kurz Wärme aus dem Puffer.',
-                    kuehlen: 'Kühlbetrieb.',
-                    verdichter: 'Die Wärmepumpe läuft ohne Heiz- oder Warmwasseranforderung (z. B. PV-Überschuss).',
-                    sommer: 'Sommerbetrieb: keine Heizung, Warmwasser nur bei Bedarf.',
+                    heating: 'Die Wärmepumpe holt Wärme aus der Außenluft und lädt den Heizpuffer.',
+                    heating_demand: 'Das Haus braucht Wärme. Der Puffer ist noch warm genug, die Wärmepumpe wartet.',
+                    hot_water: 'Die Wärmepumpe erwärmt gerade das Warmwasser.',
+                    dhw_demand: 'Warmwasser wird angefordert. Die Wärmepumpe wartet noch (z. B. Mindestpause).',
+                    defrost: 'Das Außengerät taut Eis ab und nutzt dafür kurz Wärme aus dem Puffer.',
+                    cooling: 'Kühlbetrieb.',
+                    compressor_running: 'Die Wärmepumpe läuft ohne Heiz- oder Warmwasseranforderung (z. B. PV-Überschuss).',
+                    summer: 'Sommerbetrieb: keine Heizung, Warmwasser nur bei Bedarf.',
                     standby: 'Alles warm genug. Die Wärmepumpe ruht.',
-                    evu_sperre: 'Der Netzbetreiber hat die Wärmepumpe vorübergehend gesperrt.',
-                    aus: 'Die Wärmepumpe ist ausgeschaltet.',
-                    stoerung: 'Störung. Bitte Bedienteil prüfen oder Fachbetrieb anrufen.'};
+                    price_lock: 'Preissperre: Die Wärmepumpe pausiert wegen hoher Strompreise.',
+                    utility_lock: 'Der Netzbetreiber hat die Wärmepumpe vorübergehend gesperrt.',
+                    off: 'Die Wärmepumpe ist ausgeschaltet.',
+                    fault: 'Störung. Bitte Bedienteil prüfen oder Fachbetrieb anrufen.'};
                   const MODE = {off: 'Aus', auto: 'Automatik', cooling: 'Kühlen', summer: 'Sommer',
                     continuous: 'Dauerbetrieb', setback: 'Absenken', holiday: 'Urlaub', party: 'Party'};
                   const scol = COL[code] || 'var(--secondary-text-color)';
                   const run = on('binary_sensor.brotje_neo_verdichter');
                   const fan = on('binary_sensor.brotje_neo_ventilator');
-                  const defrost = code === 'abtauen';
+                  const defrost = code === 'defrost';
                   const ww = run && on('binary_sensor.brotje_neo_warmwasser') && !defrost;
                   const buf = on('binary_sensor.brotje_neo_pufferladepumpe') && !ww;
                   const water = buf || ww || defrost;
@@ -409,7 +408,7 @@ views:
 
                     <!-- Klartext -->
                     <text x="20" y="32" class="big" fill="${scol}">${label}</text>
-                    <text x="20" y="58" class="txt">${pkg ? (TXT[code] || '') : 'Package broetje_neo_dashboard.yaml ist nicht geladen (docs/DASHBOARD.md).'}</text>
+                    <text x="20" y="58" class="txt">${sObj ? (TXT[code] || '') : 'Integration broetje_neo ab 0.6.0 nötig (docs/DASHBOARD.md).'}</text>
                     <text x="20" y="80" class="lbl">${fbh}</text>
                     <text x="880" y="28" class="lbl" text-anchor="end">COP ${fmt(cop, '', 2)}</text>
                     <text x="880" y="48" class="sml" text-anchor="end">${fmt(pel, 'W', 0)} Strom → ${fmt(pth, 'kW', 1)} Wärme</text>
@@ -526,19 +525,19 @@ views:
                 apex_config:
                   title: {text: "°C"}
             series:
-              # Tagesmaximum der "heute"-Sensoren = Tagessumme (Langzeitstatistik)
-              - entity: sensor.wpd_heizanforderung_heute
+              # Tageszuwachs der "heute"-Zähler = Tagessumme (Langzeitstatistik)
+              - entity: sensor.brotje_neo_heizanforderung_heute
                 name: Heizanforderung
                 type: column
                 yaxis_id: h
                 color: "#ffb300"
-                statistics: {type: max, period: day, align: start}
-              - entity: sensor.wpd_verdichterlaufzeit_heizen_heute
+                statistics: {type: change, period: day, align: start}
+              - entity: sensor.brotje_neo_verdichterlaufzeit_heizen_heute
                 name: Verdichter Heizen
                 type: column
                 yaxis_id: h
                 color: "#e4572e"
-                statistics: {type: max, period: day, align: start}
+                statistics: {type: change, period: day, align: start}
               - entity: sensor.brotje_neo_aussentemperatur
                 name: Außen Ø
                 type: line

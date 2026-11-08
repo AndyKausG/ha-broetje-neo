@@ -32,6 +32,7 @@ LIMIT_KEEP_S = 60 * DAY  # demand starts kept for the estimate
 LIMIT_MIN_STARTS = 3  # starts needed for a candidate
 LIMIT_MARGIN = 1.0  # K above the candidate ...
 LIMIT_CONFIRM_H = 6  # ... for this many hours without heating demand (last 14 days)
+SEASON_GAP_S = 14 * DAY  # a heating demand after this pause starts a new heating season
 
 # max. flow/return spread in heating mode (rule of thumb)
 SPREAD_LIMITS = {"underfloor": 6.0, "radiator": 8.0, "mixed": 7.0}
@@ -69,6 +70,8 @@ class Sample:
     e_el_heat: float | None = None
     e_th_dhw: float | None = None
     e_el_dhw: float | None = None
+    p_el: float | None = None  # W
+    p_th: float | None = None  # kW
 
 
 @dataclass
@@ -102,6 +105,10 @@ class Bucket:
     t_del_sum: float = 0.0  # outdoor delayed (fallback: outdoor)
     t_del_n: int = 0
     demand_heat_n: int = 0  # samples with heating demand (compressor on or off)
+    demand_heat_s: float = 0.0  # time with heating demand
+    comp_heat_s: float = 0.0  # time with compressor on and heating demand
+    e_el_wh: float = 0.0  # electrical energy from the power reading
+    e_th_wh: float = 0.0  # thermal energy from the power reading
     # per room sensor: [temp_sum, temp_n, dev_sum, dev_n]
     rooms: dict[str, list[float]] = field(default_factory=dict)
 
@@ -140,6 +147,12 @@ class Tracker:
     heat_limit: dict[str, float] | None = None
     _last_demand_heat: bool | None = None
     _limit_hour: int | None = None
+    last_heat_start: float | None = None  # start of the last heating demand
+    last_comp_heat_start: float | None = None  # last compressor start for heating
+    season_start: float | None = None  # first heating demand after a long pause
+    _last_comp_heat: bool | None = None
+    _last_p_el: float | None = None
+    _last_p_th: float | None = None
 
     # ----------------------------------------------------------- feeding
     def feed(self, s: Sample) -> None:
@@ -150,13 +163,29 @@ class Tracker:
         if self._last_ts is not None:
             dt = max(0.0, min(s.ts - self._last_ts, MAX_DT))
         b = self.buckets.setdefault(int(s.ts // HOUR), Bucket(int(s.ts // HOUR)))
+        # time and energy of the interval since the last sample (state at its start)
+        if self._last_comp:
+            b.comp_on_s += dt
+        if self._last_demand_heat:
+            b.demand_heat_s += dt
+            if self._last_comp:
+                b.comp_heat_s += dt
+        if self._last_p_el is not None:
+            b.e_el_wh += self._last_p_el * dt / HOUR
+        if self._last_p_th is not None:
+            b.e_th_wh += self._last_p_th * 1000 * dt / HOUR
+        self._last_p_el, self._last_p_th = s.p_el, s.p_th
+        if s.compressor is not None and s.demand is not None:
+            comp_heat = s.compressor and s.demand == "heating"
+            if comp_heat and self._last_comp_heat is False:
+                self.last_comp_heat_start = s.ts
+            self._last_comp_heat = comp_heat
 
         if s.t_out is not None:
             b.t_out_sum += s.t_out
             b.t_out_n += 1
         if s.compressor is not None:
             if s.compressor:
-                b.comp_on_s += dt if self._last_comp else 0.0
                 if self._last_comp is False:
                     b.starts += 1
                     self._run_start = s.ts
@@ -211,8 +240,12 @@ class Tracker:
             demand_heat = s.demand == "heating"
             if demand_heat:
                 b.demand_heat_n += 1
-                if self._last_demand_heat is False and x is not None:
-                    self.heat_starts.append((s.ts, x, s.t_out))
+                if self._last_demand_heat is False:
+                    if self.last_heat_start is None or s.ts - self.last_heat_start > SEASON_GAP_S:
+                        self.season_start = s.ts
+                    self.last_heat_start = s.ts
+                    if x is not None:
+                        self.heat_starts.append((s.ts, x, s.t_out))
             self._last_demand_heat = demand_heat
         self._snapshot_counters(s)
         self._last_ts = s.ts
@@ -275,6 +308,9 @@ class Tracker:
             "first_ts": self.first_ts,
             "heat_starts": self.heat_starts,
             "heat_limit": self.heat_limit,
+            "last_heat_start": self.last_heat_start,
+            "last_comp_heat_start": self.last_comp_heat_start,
+            "season_start": self.season_start,
         }
 
     @classmethod
@@ -290,6 +326,9 @@ class Tracker:
         t.first_ts = data.get("first_ts")
         t.heat_starts = [tuple(h) for h in data.get("heat_starts", [])]
         t.heat_limit = data.get("heat_limit")
+        t.last_heat_start = data.get("last_heat_start")
+        t.last_comp_heat_start = data.get("last_comp_heat_start")
+        t.season_start = data.get("season_start")
         return t
 
     # ---------------------------------------------------------- figures
@@ -349,6 +388,37 @@ class Tracker:
             sum(1 for h in self.heat_starts if h[0] >= now - LIMIT_KEEP_S)
         )
         return fig
+
+    def period(self, start: float, end: float) -> dict[str, float]:
+        """Run times (h) and energy (kWh) of the hours in [start, end)."""
+        sel = [b for b in self.buckets.values() if start <= b.hour * HOUR < end]
+        return {
+            "heating_demand_h": round(sum(b.demand_heat_s for b in sel) / HOUR, 2),
+            "compressor_h": round(sum(b.comp_on_s for b in sel) / HOUR, 2),
+            "compressor_heating_h": round(sum(b.comp_heat_s for b in sel) / HOUR, 2),
+            "e_el_kwh": round(sum(b.e_el_wh for b in sel) / 1000, 3),
+            "e_th_kwh": round(sum(b.e_th_wh for b in sel) / 1000, 3),
+        }
+
+    def daily(self, now: float, today_start: float, yesterday_start: float) -> dict[str, Any]:
+        """Values for the day / run time sensors (local day bounds from the caller)."""
+        today = self.period(today_start, now + HOUR)
+        yesterday = self.period(yesterday_start, today_start)
+        week = self.period(now - 7 * DAY, now + HOUR)
+        out: dict[str, Any] = {}
+        for key in ("heating_demand_h", "compressor_h", "compressor_heating_h"):
+            out[f"{key}_today"] = today[key]
+            out[f"{key}_yesterday"] = yesterday[key]
+            out[f"{key}_7d"] = week[key]
+        out["e_el_today"] = today["e_el_kwh"]
+        out["e_th_today"] = today["e_th_kwh"]
+        out["cop_today"] = (
+            round(today["e_th_kwh"] / today["e_el_kwh"], 2) if today["e_el_kwh"] >= 0.2 else None
+        )
+        out["last_heat_start"] = self.last_heat_start
+        out["last_comp_heat_start"] = self.last_comp_heat_start
+        out["season_start"] = self.season_start
+        return out
 
     def heat_limit_detail(self, now: float) -> dict[str, Any]:
         """Attributes for the observed heating limit sensor."""
@@ -904,6 +974,65 @@ def advise(
 
     hints.sort(key=lambda h: h.severity != "warning")
     return hints
+
+
+PLANT_STATES = (
+    "fault",
+    "price_lock",
+    "utility_lock",
+    "off",
+    "defrost",
+    "hot_water",
+    "heating",
+    "cooling",
+    "compressor_running",
+    "heating_demand",
+    "dhw_demand",
+    "summer",
+    "standby",
+)
+
+
+def plant_state(
+    *,
+    fault: bool | None,
+    evu_release: bool | None,
+    price_lock: bool | None,
+    mode: str | None,
+    compressor: bool | None,
+    demand: str | None,
+    defrost: bool | None,
+    passive_cooling: bool | None,
+) -> str | None:
+    """What the plant is doing, first match wins (see PLANT_STATES)."""
+    if compressor is None:
+        return None
+    cooling = demand == "cooling" or bool(passive_cooling)
+    if fault:
+        return "fault"
+    if price_lock:
+        return "price_lock"
+    if evu_release is False or mode == "evu_lock":
+        return "utility_lock"
+    if mode in ("off", "main_switch_off"):
+        return "off"
+    if defrost and not cooling:  # the four-way valve is also reversed for cooling
+        return "defrost"
+    if compressor and demand == "hot_water":
+        return "hot_water"
+    if compressor and demand == "heating":
+        return "heating"
+    if cooling:
+        return "cooling"
+    if compressor:
+        return "compressor_running"
+    if demand == "heating":
+        return "heating_demand"
+    if demand == "hot_water":
+        return "dhw_demand"
+    if mode == "summer":
+        return "summer"
+    return "standby"
 
 
 def status(hints: list[Hint], data_days: float) -> str:
