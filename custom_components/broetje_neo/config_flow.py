@@ -22,15 +22,19 @@ from .const import (
     CONF_ALLOW_PRICE_LOCK,
     CONF_ALLOW_PV,
     CONF_ALLOW_WRITE,
+    CONF_EXPECTED_SPF,
+    CONF_HEATING_SYSTEM,
     CONF_MODEL,
     CONF_PRICE_LOCK_MAX,
     CONF_PV_MAX_POWER,
     CONF_PV_WATCHDOG,
+    CONF_ROOM_SENSORS,
     CONF_SCAN_INTERVAL,
     CONF_UNIT_ID,
     DEFAULT_ALLOW_PRICE_LOCK,
     DEFAULT_ALLOW_PV,
     DEFAULT_ALLOW_WRITE,
+    DEFAULT_HEATING_SYSTEM,
     DEFAULT_MODEL,
     DEFAULT_NAME,
     DEFAULT_PORT,
@@ -39,6 +43,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_UNIT_ID,
     DOMAIN,
+    HEATING_SYSTEMS,
     MAX_SCAN_INTERVAL,
     MIN_SCAN_INTERVAL,
     MODBUS_TIMEOUT,
@@ -124,11 +129,41 @@ class BroetjeNeoOptionsFlow(OptionsFlow):
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Manage options."""
         if user_input is not None:
-            data = {k: (v if isinstance(v, bool) else int(v)) for k, v in user_input.items()}
+            data = {
+                k: (v if isinstance(v, (bool, str, list)) else int(v))
+                for k, v in user_input.items()
+            }
+            data[CONF_EXPECTED_SPF] = float(user_input.get(CONF_EXPECTED_SPF, 0))
             return self.async_create_entry(data=data)
         opts = self.config_entry.options
         schema = vol.Schema(
             {
+                vol.Required(
+                    CONF_HEATING_SYSTEM,
+                    default=opts.get(CONF_HEATING_SYSTEM, DEFAULT_HEATING_SYSTEM),
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=HEATING_SYSTEMS,
+                        translation_key="heating_system",
+                        mode=selector.SelectSelectorMode.DROPDOWN,
+                    )
+                ),
+                vol.Optional(
+                    CONF_ROOM_SENSORS,
+                    default=opts.get(CONF_ROOM_SENSORS, []),
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(
+                        domain="sensor", device_class="temperature", multiple=True
+                    )
+                ),
+                vol.Required(
+                    CONF_EXPECTED_SPF,
+                    default=opts.get(CONF_EXPECTED_SPF, 0),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0, max=7, step=0.1, mode=selector.NumberSelectorMode.BOX
+                    )
+                ),
                 vol.Required(
                     CONF_ALLOW_WRITE,
                     default=opts.get(CONF_ALLOW_WRITE, DEFAULT_ALLOW_WRITE),

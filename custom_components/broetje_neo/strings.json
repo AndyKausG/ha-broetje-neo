@@ -26,6 +26,9 @@
         "title": "Options",
         "description": "Register 125 (PV power) is reset to 0 if not refreshed within this time, on HA start and on stop.",
         "data": {
+          "heating_system": "Heating system",
+          "room_sensors": "Room temperature sensors (for the efficiency check)",
+          "expected_spf": "Planned seasonal performance factor (0 = unknown)",
           "allow_write": "Allow writing settings",
           "allow_pv": "Allow PV / power control",
           "allow_price_lock": "Allow price lock",
@@ -192,6 +195,45 @@
       },
       "spf_dhw": {
         "name": "SPF DHW"
+      },
+      "efficiency_check": {
+        "name": "Efficiency check",
+        "state": {
+          "collecting": "Collecting data",
+          "good": "Good",
+          "improvable": "Improvable",
+          "check": "Please check"
+        }
+      },
+      "starts_24h": {
+        "name": "Compressor starts 24 h"
+      },
+      "run_time_per_start": {
+        "name": "Run time per start"
+      },
+      "defrosts_24h": {
+        "name": "Defrosts 24 h"
+      },
+      "curve_flow_m10": {
+        "name": "Heating curve flow at minus 10 degrees"
+      },
+      "curve_flow_0": {
+        "name": "Heating curve flow at 0 degrees"
+      },
+      "heating_spread_7d": {
+        "name": "Heating spread 7 days"
+      },
+      "room_avg_7d": {
+        "name": "Room temperature 7 days"
+      },
+      "spf_30d": {
+        "name": "SPF 30 days"
+      },
+      "spf_heating_30d": {
+        "name": "SPF heating 30 days"
+      },
+      "spf_dhw_30d": {
+        "name": "SPF DHW 30 days"
       }
     },
     "binary_sensor": {
@@ -305,6 +347,15 @@
     "switch": {
       "price_lock": {
         "name": "Price lock"
+      }
+    }
+  },
+  "selector": {
+    "heating_system": {
+      "options": {
+        "underfloor": "Underfloor heating",
+        "radiator": "Radiators",
+        "mixed": "Mixed"
       }
     }
   }

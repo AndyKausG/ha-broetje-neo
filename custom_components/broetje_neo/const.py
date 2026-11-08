@@ -16,6 +16,11 @@ CONF_ALLOW_WRITE: Final = "allow_write"
 CONF_ALLOW_PV: Final = "allow_pv"
 CONF_ALLOW_PRICE_LOCK: Final = "allow_price_lock"
 CONF_PRICE_LOCK_MAX: Final = "price_lock_max_minutes"
+CONF_HEATING_SYSTEM: Final = "heating_system"
+CONF_ROOM_SENSORS: Final = "room_sensors"
+CONF_EXPECTED_SPF: Final = "expected_spf"
+HEATING_SYSTEMS: Final = ["underfloor", "radiator", "mixed"]
+DEFAULT_HEATING_SYSTEM: Final = "underfloor"
 
 DEFAULT_NAME: Final = "Brötje NEO"
 DEFAULT_MODEL: Final = "BLW NEO"

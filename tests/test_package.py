@@ -42,7 +42,9 @@ async def _settle(hass: HomeAssistant) -> None:
 
 async def test_package_entity_ids_exist(hass: HomeAssistant, fake_client, config_entry) -> None:
     await _setup_de(hass, config_entry)
-    text = PACKAGE.read_text(encoding="utf-8") + CARD.read_text(encoding="utf-8")
+    text = PACKAGE.read_text(encoding="utf-8") + "".join(
+        f.read_text(encoding="utf-8") for f in (EXTRAS / "lovelace").glob("*.yaml")
+    )
     ids = set(
         re.findall(r"\b((?:sensor|binary_sensor|number|switch|select)\.brotje_neo_\w+)", text)
     )
@@ -158,3 +160,16 @@ async def test_package_price_lock_automation(
     hass.states.async_set("sensor.anpassen_strompreis", "0.20")
     await _settle(hass)
     assert fake_client.holding[150] == 0
+
+
+async def test_efficiency_card_renders(hass: HomeAssistant, fake_client, config_entry) -> None:
+    from homeassistant.helpers.template import Template
+
+    fake_client.input[26] = 1  # fault -> at least one hint
+    await _setup_de(hass, config_entry)
+    card = parse_yaml((EXTRAS / "lovelace" / "effizienz-check.yaml").read_text(encoding="utf-8"))
+    out = Template(card["cards"][0]["content"], hass).async_render(parse_result=False)
+    assert "Sammle Daten" in out
+    assert "Störung aktiv" in out
+    assert "Vorschlag:" in out
+    print(out)

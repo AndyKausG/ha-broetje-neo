@@ -51,7 +51,8 @@ zuverlässig läuft.
   (getrennt Heizen/Warmwasser), Betriebsstunden. Passt zum Energie-Dashboard
 - **Effizienz**: COP der Anlage, berechneter COP, **Arbeitszahl** seit Inbetriebnahme
 - **Hilfswerte zum Optimieren** (Erklärung unten): Spreizung, Überhitzung,
-  Temperaturhub
+  Temperaturhub, gemessene Heizkurve, Starts und Laufzeiten, Arbeitszahl 30 Tage
+- **Effizienz-Check** mit konkreten Verbesserungsvorschlägen (siehe unten)
 - **Zustände**: Verdichter, Pumpen, Ventilator, Abtauen, Störung, EVU-Freigabe,
   aktuelle Anforderung (Heizen/Warmwasser/Kühlen)
 
@@ -69,8 +70,48 @@ noch Verläufe.
 | Starts pro Tag | ≤ 10–12 | wie oben |
 | Überhitzung | ca. 4–8 K | Kältekreis-Kennwert. Dauerhaft auffällig: Fachbetrieb fragen |
 
-Werte nicht passend? Ändere die Einstellungen am besten mit dem Fachbetrieb, vor
-allem die Heizkurve. Die Integration liefert dir die Zahlen dafür.
+Diese Prüfung übernimmt der **Effizienz-Check** automatisch (nächster Abschnitt).
+
+---
+
+## Effizienz-Check: Ist meine Wärmepumpe gut eingestellt?
+
+Heizungsbauer stellen die Anlage bei der Inbetriebnahme ein, meist ohne echte
+Betriebsdaten aus deinem Haus. Die Integration sammelt diese Daten laufend
+(14 Tage, bleibt über Neustarts erhalten) und prüft sie gegen bewährte Richtwerte.
+Daraus entstehen verständliche Hinweise mit drei Teilen:
+
+- **Befund:** was gemessen wurde, z.B. „Vorlauf 38 °C bei 0 °C außen“
+- **Vorschlag:** was man tun kann, z.B. „Heizkurve um 1 K senken, 1–2 Tage beobachten“
+- **Wer:** *selbst* (am Bedienteil), *Fachbetrieb* oder beides
+
+Die Integration **ändert dabei selbst nichts**. Die Hinweise sind Vorschläge.
+
+| Prüfung | Grundlage |
+|---------|-----------|
+| Heizkurve höher als nötig (gemessen, nicht eingestellt) | DUH-Ratgeber: flache, niedrige Heizkurve, 1 K Absenkung ≈ 2,5 % Strom |
+| Räume wärmer bzw. kälter als eingestellt (mit Raumsensor) | DUH-Ratgeber: absenken, solange es warm bleibt |
+| Heizbetrieb bei mildem Wetter (Heizgrenze) | DUH-Ratgeber: Heizgrenze ca. 15 °C möglich |
+| Takten (kurze Laufzeiten) | Faustregel: ≥ 20–30 min pro Start |
+| Spreizung zu groß/zu klein (Durchfluss, Pumpe) | Faustregel je Heizsystem |
+| Warmwasser zu heiß / wenig effizient | Faustregel: 48–50 °C reichen oft, Legionellenschutz mit Fachbetrieb klären |
+| Viele Abtauungen bei milder Witterung | Hinweis auf Verschmutzung/Luftweg |
+| Kältekreis auffällig (Überhitzung) | nur Hinweis an den Fachbetrieb, nicht selbst eingreifen |
+| Arbeitszahl 30 Tage, Vergleich mit der Planung | DUH-Ratgeber: mit den Werten aus dem Förderantrag vergleichen |
+| Störung aktiv | sofort |
+
+So nutzt du den Effizienz-Check:
+1. Integration → Konfigurieren: **Heizsystem** wählen (Fußbodenheizung/Heizkörper/gemischt),
+   **Raumtemperatur-Sensoren** auswählen (z.B. Wohnzimmer) und, falls bekannt, die
+   **geplante Jahresarbeitszahl** aus Angebot oder Förderantrag eintragen.
+2. Mindestens 3 Tage, besser 2 Wochen in der Heizsaison sammeln lassen.
+3. Karte `extras/lovelace/effizienz-check.yaml` ins Dashboard einfügen.
+4. Hinweise einzeln abarbeiten, immer nur **eine** Änderung und dann 1–2 Tage beobachten.
+   Bei *Fachbetrieb* die Karte bzw. die Zahlen zur Wartung mitnehmen.
+
+Grenzen: Die Integration kennt dein Haus nicht (Dämmung, Heizlast, Rohrnetz). Die
+Richtwerte sind Orientierung, keine Garantie. Ein Heizstab-Einsatz lässt sich über die
+Schnittstelle nicht erkennen.
 
 ---
 
@@ -92,6 +133,9 @@ Integration → **Konfigurieren**:
 
 | Option | Standard | Was passiert |
 |--------|----------|--------------|
+| Heizsystem | Fußbodenheizung | für die Richtwerte im Effizienz-Check |
+| Raumtemperatur-Sensoren | – | einer oder mehrere, für den Effizienz-Check |
+| Geplante Jahresarbeitszahl | 0 (unbekannt) | Vergleichswert, z.B. aus dem Förderantrag |
 | Einstellungen schreiben erlauben | aus | Betriebsart (ohne „Aus“) und Sollwerte in den sicheren Grenzen |
 | PV-/Leistungssteuerung erlauben | aus | PV-Überschuss an die Wärmepumpe melden |
 | Preissperre erlauben | aus | Wärmepumpe bei hohem Strompreis pausieren |
@@ -143,6 +187,7 @@ Schalter „nicht verfügbar“.
 | `extras/packages/broetje_neo_analytics.yaml` | Arbeitszahl pro Tag/Monat/Jahr, **PV-Anteil**, Starts und Laufzeiten, Abtauungen, EVU-Sperrzeit, Automationen für PV und Preissperre |
 | `extras/tools/analyze_heatpump.py` | Auswertung der HA-Datenbank am PC: Monats-Arbeitszahl, Takten, Heizkurve, Spreizung, Überhitzung mit Bewertung |
 | `extras/lovelace/heat-pump-card.yaml` | Anlagenbild mit der `lovelace-heat-pump-card` |
+| `extras/lovelace/effizienz-check.yaml` | Effizienz-Check mit Hinweisen und Kennzahlen |
 
 **Package einbinden:** Datei nach `/config/packages/` kopieren, in
 `configuration.yaml` eintragen:

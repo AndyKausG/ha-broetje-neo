@@ -247,6 +247,83 @@ SENSORS: tuple[BroetjeSensorDescription, ...] = (
 )
 
 
+# --- efficiency check ------------------------------------------------------
+def _fig(key: str) -> ValueFn:
+    return lambda c: c.figures.get(key)
+
+
+def _hints_attr(c: BroetjeNeoCoordinator) -> dict[str, Any]:
+    return {
+        "hint_count": len(c.hints),
+        "data_days": c.data_days,
+        "hints": [
+            {
+                "id": h.id,
+                "severity": h.severity,
+                "title": h.title,
+                "finding": h.finding,
+                "suggestion": h.suggestion,
+                "who": h.who,
+            }
+            for h in c.hints
+        ],
+        "note": "Vorschläge ohne Gewähr. Änderungen am Bedienteil oder mit dem Fachbetrieb.",
+    }
+
+
+def _check(
+    key: str, unit: str | None = None, *, precision: int = 1, **kw
+) -> BroetjeSensorDescription:
+    return BroetjeSensorDescription(
+        key=key,
+        native_unit_of_measurement=unit,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=precision,
+        value_fn=_fig(kw.pop("fig", key)),
+        **kw,
+    )
+
+
+ADVISOR_SENSORS: tuple[BroetjeSensorDescription, ...] = (
+    BroetjeSensorDescription(
+        key="efficiency_check",
+        device_class=SensorDeviceClass.ENUM,
+        options=["collecting", "good", "improvable", "check"],
+        icon="mdi:stethoscope",
+        value_fn=lambda c: c.advice_status,
+        attr_fn=_hints_attr,
+    ),
+    _check("starts_24h", fig="starts_24h", precision=0, icon="mdi:restart"),
+    _check(
+        "run_time_per_start",
+        UnitOfTime.MINUTES,
+        fig="run_median_min_24h",
+        precision=0,
+        device_class=SensorDeviceClass.DURATION,
+    ),
+    _check("defrosts_24h", precision=0, icon="mdi:snowflake-melt"),
+    _check(
+        "curve_flow_m10",
+        UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+    ),
+    _check(
+        "curve_flow_0",
+        UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+    ),
+    _check("heating_spread_7d", UnitOfTemperature.KELVIN),
+    _check(
+        "room_avg_7d",
+        UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+    ),
+    _check("spf_30d", precision=2),
+    _check("spf_heating_30d", precision=2),
+    _check("spf_dhw_30d", precision=2),
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: BroetjeConfigEntry,
@@ -254,7 +331,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up sensors."""
     coordinator = entry.runtime_data
-    async_add_entities(BroetjeNeoSensor(coordinator, d) for d in SENSORS)
+    async_add_entities(BroetjeNeoSensor(coordinator, d) for d in SENSORS + ADVISOR_SENSORS)
 
 
 class BroetjeNeoSensor(BroetjeNeoEntity, SensorEntity):

@@ -367,3 +367,42 @@ async def test_readonly_does_not_touch_lock(
     await _setup(hass, readonly_entry)
     assert await hass.config_entries.async_unload(readonly_entry.entry_id)
     assert fake_client.holding[150] == 1
+
+
+# ------------------------------------------------------- efficiency check
+async def test_efficiency_check_sensor(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    hass.states.async_set("sensor.wohnzimmer", "21.4", {"device_class": "temperature"})
+    entry = MockConfigEntry(
+        domain=readonly_entry.domain,
+        data=readonly_entry.data,
+        options={"room_sensors": ["sensor.wohnzimmer"], "heating_system": "underfloor"},
+        unique_id="adv",
+    )
+    await _setup(hass, entry)
+    st = hass.states.get("sensor.wp_efficiency_check")
+    assert st.state == "collecting"
+    assert st.attributes["data_days"] == 0
+    assert isinstance(st.attributes["hints"], list)
+    assert hass.states.get("sensor.wp_compressor_starts_24_h") is not None
+    assert hass.states.get("sensor.wp_room_temperature_7_days").state == "21.4"
+    # read-only: the check never writes
+    assert all(not c.writes for c in fake_client.instances)
+
+
+async def test_efficiency_data_persisted(hass: HomeAssistant, fake_client, config_entry) -> None:
+    await _setup(hass, config_entry)
+    coordinator = config_entry.runtime_data
+    assert coordinator.tracker.buckets
+    assert await hass.config_entries.async_unload(config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    await hass.async_block_till_done()
+    assert config_entry.runtime_data.tracker.first_ts == coordinator.tracker.first_ts
+
+
+async def test_fault_hint_immediately(hass: HomeAssistant, fake_client, readonly_entry) -> None:
+    fake_client.input[26] = 1
+    await _setup(hass, readonly_entry)
+    st = hass.states.get("sensor.wp_efficiency_check")
+    assert st.state == "collecting"
+    assert any(h["id"] == "fault" for h in st.attributes["hints"])

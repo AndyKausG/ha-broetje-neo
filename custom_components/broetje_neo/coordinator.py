@@ -12,23 +12,28 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from pymodbus.client import AsyncModbusTcpClient
 from pymodbus.exceptions import ModbusException
 
-from . import safety
+from . import advisor, registers as r, safety
 from .const import (
     CONF_ALLOW_PRICE_LOCK,
     CONF_ALLOW_PV,
     CONF_ALLOW_WRITE,
+    CONF_EXPECTED_SPF,
+    CONF_HEATING_SYSTEM,
     CONF_PRICE_LOCK_MAX,
     CONF_PV_MAX_POWER,
     CONF_PV_WATCHDOG,
+    CONF_ROOM_SENSORS,
     CONF_SCAN_INTERVAL,
     CONF_UNIT_ID,
     DEFAULT_ALLOW_PRICE_LOCK,
     DEFAULT_ALLOW_PV,
     DEFAULT_ALLOW_WRITE,
+    DEFAULT_HEATING_SYSTEM,
     DEFAULT_PV_MAX_POWER,
     DEFAULT_PV_WATCHDOG,
     DEFAULT_SCAN_INTERVAL,
@@ -102,6 +107,17 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
         self._lock_started: float | None = None
         self._lock_ended: float | None = None
 
+        # Efficiency check
+        self.heating_system: str = opts.get(CONF_HEATING_SYSTEM, DEFAULT_HEATING_SYSTEM)
+        self.room_sensors: list[str] = list(opts.get(CONF_ROOM_SENSORS, []))
+        self.expected_spf: float | None = opts.get(CONF_EXPECTED_SPF) or None
+        self.tracker = advisor.Tracker()
+        self._store: Store[dict[str, Any]] = Store(hass, 1, f"{DOMAIN}.{entry.entry_id}.advisor")
+        self.figures: dict[str, float | None] = {}
+        self.hints: list[advisor.Hint] = []
+        self.advice_status: str = "collecting"
+        self.data_days: float = 0.0
+
     # ------------------------------------------------------------------ I/O
     async def _ensure_connected(self) -> None:
         if not self._client.connected:
@@ -146,7 +162,78 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
 
         await self._async_pv_watchdog(data)
         await self._async_price_lock_guard(data)
+        self._update_advice(data)
         return data
+
+    # ---------------------------------------------------- efficiency check
+    async def async_load_advisor(self) -> None:
+        """Restore collected operating data."""
+        self.tracker = advisor.Tracker.from_dict(await self._store.async_load())
+
+    async def async_save_advisor(self) -> None:
+        """Persist collected operating data now."""
+        await self._store.async_save(self.tracker.to_dict())
+
+    def _room_temperature(self) -> float | None:
+        values = [
+            v
+            for eid in self.room_sensors
+            if (st := self.hass.states.get(eid)) is not None
+            and (v := advisor.safe_float(st.state)) is not None
+        ]
+        return round(sum(values) / len(values), 2) if values else None
+
+    def _update_advice(self, data: RegisterData) -> None:
+        inp, hold = data[Table.INPUT], data[Table.HOLDING]
+
+        def val(reg: Register) -> float | None:
+            v = decode(reg, inp if reg.table is Table.INPUT else hold)
+            return None if v is None else float(v)
+
+        def flag(reg: Register) -> bool | None:
+            raw = raw_value(reg, inp)
+            return None if raw is None else raw != 0
+
+        suction, evap = val(r.T_SUCTION_GAS), val(r.T_EVAPORATION)
+        now = time.time()
+        self.tracker.feed(
+            advisor.Sample(
+                ts=now,
+                t_out=val(r.T_OUTDOOR),
+                t_flow=val(r.T_FLOW),
+                t_return=val(r.T_RETURN),
+                compressor=flag(r.HEAT_PUMP_RUNNING),
+                demand=r.DEMANDS.get(raw_value(r.DEMAND, inp)),
+                defrost=flag(r.FOUR_WAY_VALVE),
+                superheat=None if None in (suction, evap) else suction - evap,
+                room=self._room_temperature(),
+                e_th_total=val(r.E_TH_TOTAL),
+                e_el_total=val(r.E_EL_TOTAL),
+                e_th_heat=val(r.E_TH_HEATING),
+                e_el_heat=val(r.E_EL_HEATING),
+                e_th_dhw=val(r.E_TH_DHW),
+                e_el_dhw=val(r.E_EL_DHW),
+            )
+        )
+        self._store.async_delay_save(self.tracker.to_dict, 300)
+        self.data_days = round(self.tracker.data_days(now), 1)
+        self.figures = self.tracker.figures(now)
+        ctx = advisor.Context(
+            heating_system=self.heating_system,
+            room_setpoint=val(r.ROOM_SETPOINT),
+            dhw_setpoint=val(r.DHW_NORMAL),
+            expected_spf=self.expected_spf,
+            fault=bool(flag(r.FAULT)),
+            has_room_sensor=bool(self.room_sensors),
+        )
+        hints = advisor.advise(self.figures, ctx, self.data_days)
+        if self.data_days < advisor.MIN_DAYS:
+            # only immediate findings until enough data is collected
+            hints = [
+                h for h in hints if h.id in ("fault", "no_room_sensor", "room_set_high", "dhw_high")
+            ]
+        self.hints = hints
+        self.advice_status = advisor.status(hints, self.data_days)
 
     # ------------------------------------------------------------ safety
     async def _async_pv_watchdog(self, data: RegisterData) -> None:
@@ -303,6 +390,7 @@ class BroetjeNeoCoordinator(DataUpdateCoordinator[RegisterData]):
                     await self._release_price_lock()
                 except HomeAssistantError as err:
                     _LOGGER.error("Could not release price lock: %s", err)
+        await self.async_save_advisor()
         await super().async_shutdown()
 
     async def async_close(self) -> None:

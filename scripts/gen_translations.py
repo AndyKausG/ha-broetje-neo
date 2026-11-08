@@ -25,6 +25,17 @@ MODES = {
     "main_switch_off": ("Main switch off", "Hauptschalter aus"),
 }
 WRITABLE = [k for k in MODES if k not in ("bake_out", "evu_lock", "main_switch_off")]
+CHECK = {
+    "collecting": ("Collecting data", "Sammle Daten"),
+    "good": ("Good", "Gut"),
+    "improvable": ("Improvable", "Verbesserbar"),
+    "check": ("Please check", "Bitte prüfen"),
+}
+SYSTEMS = {
+    "underfloor": ("Underfloor heating", "Fußbodenheizung"),
+    "radiator": ("Radiators", "Heizkörper"),
+    "mixed": ("Mixed", "Gemischt"),
+}
 DEMANDS = {
     "none": ("None", "Keine"),
     "cooling": ("Cooling", "Kühlen"),
@@ -78,6 +89,20 @@ ENTITIES: dict[str, dict[str, tuple[str, str]]] = {
         "spf_total": ("SPF total", "Arbeitszahl gesamt"),
         "spf_heating": ("SPF heating", "Arbeitszahl Heizen"),
         "spf_dhw": ("SPF DHW", "Arbeitszahl Warmwasser"),
+        "efficiency_check": ("Efficiency check", "Effizienz-Check"),
+        "starts_24h": ("Compressor starts 24 h", "Verdichterstarts 24 h"),
+        "run_time_per_start": ("Run time per start", "Laufzeit pro Start"),
+        "defrosts_24h": ("Defrosts 24 h", "Abtauungen 24 h"),
+        "curve_flow_m10": (
+            "Heating curve flow at minus 10 degrees",
+            "Heizkurve Vorlauf bei minus 10 Grad",
+        ),
+        "curve_flow_0": ("Heating curve flow at 0 degrees", "Heizkurve Vorlauf bei 0 Grad"),
+        "heating_spread_7d": ("Heating spread 7 days", "Spreizung Heizen 7 Tage"),
+        "room_avg_7d": ("Room temperature 7 days", "Raumtemperatur 7 Tage"),
+        "spf_30d": ("SPF 30 days", "Arbeitszahl 30 Tage"),
+        "spf_heating_30d": ("SPF heating 30 days", "Arbeitszahl Heizen 30 Tage"),
+        "spf_dhw_30d": ("SPF DHW 30 days", "Arbeitszahl Warmwasser 30 Tage"),
     },
     "binary_sensor": {
         "heating_pump": ("Heating circuit pump", "Heizkreispumpe"),
@@ -126,6 +151,9 @@ TEXT = {
         "cannot_connect": "Failed to connect or read register 10.",
         "already_configured": "Device is already configured",
         "opt_title": "Options",
+        "heating_system": "Heating system",
+        "room_sensors": "Room temperature sensors (for the efficiency check)",
+        "expected_spf": "Planned seasonal performance factor (0 = unknown)",
         "allow_write": "Allow writing settings",
         "allow_write_desc": "Operating mode (not 'off') and setpoints within safe limits. Off = read-only.",
         "allow_pv": "Allow PV / power control",
@@ -149,6 +177,9 @@ TEXT = {
         "cannot_connect": "Verbindung fehlgeschlagen oder Register 10 nicht lesbar.",
         "already_configured": "Gerät ist bereits eingerichtet",
         "opt_title": "Optionen",
+        "heating_system": "Heizsystem",
+        "room_sensors": "Raumtemperatur-Sensoren (für den Effizienz-Check)",
+        "expected_spf": "Geplante Jahresarbeitszahl (0 = unbekannt)",
         "allow_write": "Einstellungen schreiben erlauben",
         "allow_write_desc": "Betriebsart (nicht 'Aus') und Sollwerte in sicheren Grenzen. Aus = nur lesen.",
         "allow_pv": "PV-/Leistungssteuerung erlauben",
@@ -178,6 +209,8 @@ def build(lang: str) -> dict:
                 entry["state"] = {k: v[idx] for k, v in MODES.items()}
             if key == "demand":
                 entry["state"] = {k: v[idx] for k, v in DEMANDS.items()}
+            if key == "efficiency_check":
+                entry["state"] = {k: v[idx] for k, v in CHECK.items()}
             entity[platform][key] = entry
     return {
         "config": {
@@ -199,6 +232,9 @@ def build(lang: str) -> dict:
                     "data": {
                         k: t[k]
                         for k in (
+                            "heating_system",
+                            "room_sensors",
+                            "expected_spf",
                             "allow_write",
                             "allow_pv",
                             "allow_price_lock",
@@ -217,6 +253,7 @@ def build(lang: str) -> dict:
             }
         },
         "entity": entity,
+        "selector": {"heating_system": {"options": {k: v[idx] for k, v in SYSTEMS.items()}}},
     }
 
 

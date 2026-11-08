@@ -26,6 +26,9 @@
         "title": "Optionen",
         "description": "Register 125 (PV-Leistung) wird auf 0 gesetzt, wenn es nicht innerhalb dieser Zeit erneuert wird, sowie beim Start und Stopp von HA.",
         "data": {
+          "heating_system": "Heizsystem",
+          "room_sensors": "Raumtemperatur-Sensoren (für den Effizienz-Check)",
+          "expected_spf": "Geplante Jahresarbeitszahl (0 = unbekannt)",
           "allow_write": "Einstellungen schreiben erlauben",
           "allow_pv": "PV-/Leistungssteuerung erlauben",
           "allow_price_lock": "Preissperre erlauben",
@@ -192,6 +195,45 @@
       },
       "spf_dhw": {
         "name": "Arbeitszahl Warmwasser"
+      },
+      "efficiency_check": {
+        "name": "Effizienz-Check",
+        "state": {
+          "collecting": "Sammle Daten",
+          "good": "Gut",
+          "improvable": "Verbesserbar",
+          "check": "Bitte prüfen"
+        }
+      },
+      "starts_24h": {
+        "name": "Verdichterstarts 24 h"
+      },
+      "run_time_per_start": {
+        "name": "Laufzeit pro Start"
+      },
+      "defrosts_24h": {
+        "name": "Abtauungen 24 h"
+      },
+      "curve_flow_m10": {
+        "name": "Heizkurve Vorlauf bei minus 10 Grad"
+      },
+      "curve_flow_0": {
+        "name": "Heizkurve Vorlauf bei 0 Grad"
+      },
+      "heating_spread_7d": {
+        "name": "Spreizung Heizen 7 Tage"
+      },
+      "room_avg_7d": {
+        "name": "Raumtemperatur 7 Tage"
+      },
+      "spf_30d": {
+        "name": "Arbeitszahl 30 Tage"
+      },
+      "spf_heating_30d": {
+        "name": "Arbeitszahl Heizen 30 Tage"
+      },
+      "spf_dhw_30d": {
+        "name": "Arbeitszahl Warmwasser 30 Tage"
       }
     },
     "binary_sensor": {
@@ -305,6 +347,15 @@
     "switch": {
       "price_lock": {
         "name": "Preissperre"
+      }
+    }
+  },
+  "selector": {
+    "heating_system": {
+      "options": {
+        "underfloor": "Fußbodenheizung",
+        "radiator": "Heizkörper",
+        "mixed": "Gemischt"
       }
     }
   }

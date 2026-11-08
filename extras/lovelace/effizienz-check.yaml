@@ -1,0 +1,46 @@
+# Effizienz-Check als Dashboard-Karte (Karte hinzufügen -> Manuell -> einfügen)
+# Annahme: Gerätename "Brötje NEO", HA-Sprache Deutsch -> Präfix brotje_neo_
+type: vertical-stack
+cards:
+  - type: markdown
+    title: Effizienz-Check
+    content: >
+      {% set s = 'sensor.brotje_neo_effizienz_check' %}
+      {% set st = states(s) %}
+      **Status:** {{ {'collecting': '⏳ Sammle Daten (mind. 3 Tage)',
+                       'good': '✅ Gut eingestellt',
+                       'improvable': '💡 Verbesserbar',
+                       'check': '⚠️ Bitte prüfen'}.get(st, st) }}
+      · Datenbasis {{ state_attr(s, 'data_days') }} Tage
+
+      {% for h in state_attr(s, 'hints') or [] %}
+      ---
+
+      {{ '⚠️' if h.severity == 'warning' else '💡' }} **{{ h.title }}**
+
+      *Befund:* {{ h.finding }}
+
+      *Vorschlag:* {{ h.suggestion }}
+
+      *Wer:* {{ h.who }}
+
+      {% else %}
+      Keine Hinweise.
+      {% endfor %}
+
+      ---
+
+      <small>{{ state_attr(s, 'note') }}</small>
+  - type: entities
+    title: Kennzahlen
+    entities:
+      - entity: sensor.brotje_neo_arbeitszahl_30_tage
+      - entity: sensor.brotje_neo_arbeitszahl_heizen_30_tage
+      - entity: sensor.brotje_neo_arbeitszahl_warmwasser_30_tage
+      - entity: sensor.brotje_neo_heizkurve_vorlauf_bei_0_grad
+      - entity: sensor.brotje_neo_heizkurve_vorlauf_bei_minus_10_grad
+      - entity: sensor.brotje_neo_spreizung_heizen_7_tage
+      - entity: sensor.brotje_neo_raumtemperatur_7_tage
+      - entity: sensor.brotje_neo_verdichterstarts_24_h
+      - entity: sensor.brotje_neo_laufzeit_pro_start
+      - entity: sensor.brotje_neo_abtauungen_24_h
