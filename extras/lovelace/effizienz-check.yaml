@@ -4,17 +4,19 @@ type: vertical-stack
 cards:
   - type: markdown
     title: Effizienz-Check
-    content: >
-      {% set s = 'sensor.brotje_neo_effizienz_check' %}
-      {% set st = states(s) %}
-      **Status:** {{ {'collecting': '⏳ Sammle Daten (mind. 3 Tage)',
+    content: |
+      {%- set s = 'sensor.brotje_neo_effizienz_check' -%}
+      {%- set st = states(s) -%}
+      {%- set label = {'collecting': '⏳ Sammle Daten (mind. 3 Tage)',
                        'good': '✅ Gut eingestellt',
                        'improvable': '💡 Verbesserbar',
-                       'check': '⚠️ Bitte prüfen'}.get(st, st) }}
-      · Datenbasis {{ state_attr(s, 'data_days') }} Tage
+                       'check': '⚠️ Bitte prüfen'} %}
+      **Status:** {{ label.get(st, st) }}
+
+      Datenbasis: {{ (state_attr(s, 'data_days') or 0) | round(1) }} Tage
 
       {% for h in state_attr(s, 'hints') or [] %}
-      ---
+      ***
 
       {{ '⚠️' if h.severity == 'warning' else '💡' }} **{{ h.title }}**
 
@@ -26,9 +28,9 @@ cards:
 
       {% else %}
       Keine Hinweise.
-      {% endfor %}
 
-      ---
+      {% endfor %}
+      ***
 
       <small>{{ state_attr(s, 'note') }}</small>
   - type: entities

@@ -172,4 +172,9 @@ async def test_efficiency_card_renders(hass: HomeAssistant, fake_client, config_
     assert "Sammle Daten" in out
     assert "Störung aktiv" in out
     assert "Vorschlag:" in out
+    # no setext headings: a separator must never directly follow a text line
+    lines = out.splitlines()
+    for i, line in enumerate(lines):
+        if line.strip() in ("***", "---") and i > 0:
+            assert lines[i - 1].strip() == "", f"separator after text in line {i}"
     print(out)
