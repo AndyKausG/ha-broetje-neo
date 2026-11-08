@@ -328,6 +328,23 @@ Der Check schreibt nie. Er arbeitet unabhängig von allen Freigaben.
 | Raumabweichung 7 d | Mittel (Raum − R101) |
 | Raumabweichung kalt / mild | Stundenmittel bei Außen < 3 °C bzw. > 8 °C, jeweils ≥ 12 h |
 | Arbeitszahl 30 d (gesamt/Heizen/WW) | Differenz der Tageszählerstände; mindestens 20 kWh Strom (WW 10 kWh) |
+| **Heizgrenze beobachtet** | siehe unten |
+
+Heizgrenze beobachtet (selbstlernend, nur lesend):
+
+1. Bei jedem Start einer Heizanforderung (R41 wechselt auf 20) wird R33 (sonst R10)
+   gespeichert, 60 Tage lang.
+2. Kandidat = höchster gespeicherter Wert, ab 3 Starts. Er liegt um die Schalthysterese
+   unter der eingestellten Heizgrenze.
+3. Bestätigt, wenn es in den letzten 14 Tagen mindestens 6 Stunden gab, deren
+   Stundenmittel ≥ Kandidat + 1 K lag und in denen keine Heizanforderung bestand.
+4. Der Sensor zeigt den zuletzt bestätigten Wert. Er bleibt im Winter stehen (dann
+   starten Anforderungen nur bei Kälte, der Kandidat sinkt, wird aber nicht bestätigt)
+   und folgt einer Änderung am Bedienteil in der nächsten Übergangszeit: höher sofort
+   nach Bestätigung, niedriger spätestens nach 60 Tagen.
+
+Attribute: `candidate`, `confirmed_at`, `starts_60d`, `warm_hours_without_demand_14d`, `basis`,
+`setting` (Option `heating_limit`, auch als Sensor „Heizgrenze eingestellt“).
 
 Hinweis zur Heizkurve: Die Kurve der NEO-RWP besteht aus drei Stützpunkten (BA Kap. 6,
 *Heizkreis → Heizkurve*). Die Regression ist eine Näherung. Sie enthält das Raumsoll
@@ -354,6 +371,7 @@ Ausgabe je Hinweis: `id`, `severity` (info/warning), Titel, Befund, Vorschlag, w
 | buffer_overheat | nur MKR1; `rl_set_0` − `mkr_set_0` > 3 K (Puffer-Ladeziel R34 deutlich über dem Bedarf von Mischer 1) | Heizkurve HKR bzw. Raumsoll HKR schrittweise senken, Puffer ca. 2–3 K über dem Bedarf von Mischer 1; Räume prüfen | DUH (≈ 2,5 %/K) |
 | room_set_high | R101 (bei MKR1: R108) > 21,5 °C und kein Raumsensor | erst Raumsensor, nicht pauschal senken (R101 = Parallelverschiebung) | BA |
 | heating_limit | > 6 h Heizbetrieb bei ≥ 16 °C in 7 d | „Heizgrenze“ prüfen, ca. 15 °C | DUH |
+| heating_limit_mismatch | Heizgrenze beobachtet > Option `heating_limit` + 1 K | Bedienteil mit Option vergleichen, Übersteuerung prüfen | – |
 | cycling | Median-Laufzeit < 20 min bei ≥ 5 Starts (warning) oder > 24 Starts/Tag und < 30 min (info) | Ventile offen, Kurve nicht zu hoch; Fachbetrieb: Hysterese, Mindestlaufzeit, Durchfluss | Faustregel |
 | spread_high / spread_low | Spreizung > 6 K (FBH) / 8 K (HK) / 7 K (gemischt) bzw. < 2 K | Durchfluss/Abgleich bzw. Pumpe prüfen lassen | Faustregel |
 | dhw_high | R105 > 52 °C | 45–50 °C, Legionellenschutz klären | BA Werk 45 °C |
@@ -397,6 +415,7 @@ Alle Schwellen sind Richtwerte und stehen als Konstanten in `advisor.py`.
 | Raumtemperatur-Sensoren | `room_sensors` | – | Werte für den Check |
 | Raumsensoren zusammenfassen | `room_grouping` | floor | floor = Mittelwert pro Stockwerk, sensor = einzeln, 5.1 |
 | Geplante JAZ | `expected_spf` | 0 | Vergleichswert |
+| Heizgrenze laut Bedienteil | `heating_limit` | 0 | Vergleich mit der gelernten Heizgrenze, 0 = unbekannt |
 | Signal des Netzbetreibers | `grid_signal` | – | Binärsensor, 4.3 |
 | Einstellungen schreiben | `allow_write` | false | 3.2 |
 | PV-Steuerung | `allow_pv` | false | 3.2, 4.1 |
@@ -452,7 +471,8 @@ nichts.
   geprüft. Reg. 41 = 40 („Externe Anforderung“) stammt aus Nutzerberichten zu
   Heliotherm, nicht aus der NEO-Doku.
 - Heizkurve, Hysterese, Heizgrenze und Heizstab-Betrieb sind über Modbus nicht
-  schreib- oder lesbar. Der Check gibt dafür Menühinweise.
+  schreib- oder lesbar. Der Check gibt dafür Menühinweise. Heizkurve und Heizgrenze
+  werden aus dem Betrieb abgeleitet (5.2).
 - SG-Ready-Eingänge und PV-Status des RKM sind nicht über Modbus lesbar.
 - Ob das RKM mehrere Modbus-Clients gleichzeitig bedient, ist nicht dokumentiert.
 - Die Hinweistexte des Effizienz-Checks sind nur deutsch.

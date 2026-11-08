@@ -25,6 +25,7 @@ from .const import (
     CONF_EXPECTED_SPF,
     CONF_GRID_SIGNAL,
     CONF_HEATING_CIRCUIT,
+    CONF_HEATING_LIMIT,
     CONF_HEATING_SYSTEM,
     CONF_MODEL,
     CONF_PRICE_LOCK_MAX,
@@ -142,6 +143,7 @@ class BroetjeNeoOptionsFlow(OptionsFlow):
                 for k, v in user_input.items()
             }
             data[CONF_EXPECTED_SPF] = float(user_input.get(CONF_EXPECTED_SPF, 0))
+            data[CONF_HEATING_LIMIT] = float(user_input.get(CONF_HEATING_LIMIT, 0))
             return self.async_create_entry(data=data)
         opts = self.config_entry.options
         schema = vol.Schema(
@@ -190,6 +192,18 @@ class BroetjeNeoOptionsFlow(OptionsFlow):
                 ): selector.NumberSelector(
                     selector.NumberSelectorConfig(
                         min=0, max=7, step=0.1, mode=selector.NumberSelectorMode.BOX
+                    )
+                ),
+                vol.Required(
+                    CONF_HEATING_LIMIT,
+                    default=opts.get(CONF_HEATING_LIMIT, 0),
+                ): selector.NumberSelector(
+                    selector.NumberSelectorConfig(
+                        min=0,
+                        max=25,
+                        step=0.5,
+                        unit_of_measurement="°C",
+                        mode=selector.NumberSelectorMode.BOX,
                     )
                 ),
                 vol.Optional(

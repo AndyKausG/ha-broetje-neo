@@ -752,3 +752,17 @@ async def test_mixer_mode_status_and_statistics(
     assert reg is not None and reg.disabled_by is er.RegistryEntryDisabler.INTEGRATION
     lock = st("sensor.wp_grid_operator_control_today")
     assert lock.attributes["state_class"] == "total_increasing"
+
+
+async def test_heating_limit_observed_sensor(
+    hass: HomeAssistant, fake_client, config_entry
+) -> None:
+    await _setup(hass, config_entry)
+    state = hass.states.get("sensor.wp_heating_limit_observed")
+    assert state is not None
+    assert state.state == STATE_UNKNOWN  # nothing learned yet
+    assert state.attributes["starts_60d"] == 0
+    assert state.attributes["confirmed_at"] is None
+    assert state.attributes["unit_of_measurement"] == "°C"
+    assert state.attributes["setting"] is None
+    assert hass.states.get("sensor.wp_heating_limit_set").state == STATE_UNKNOWN

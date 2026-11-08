@@ -23,6 +23,7 @@ CONF_ROOM_SENSORS: Final = "room_sensors"
 CONF_ROOM_GROUPING: Final = "room_grouping"
 CONF_HEATING_CIRCUIT: Final = "heating_circuit"
 CONF_EXPECTED_SPF: Final = "expected_spf"
+CONF_HEATING_LIMIT: Final = "heating_limit"  # value set on the controller, 0 = unknown
 HEATING_SYSTEMS: Final = ["underfloor", "radiator", "mixed"]
 DEFAULT_HEATING_SYSTEM: Final = "underfloor"
 HEATING_CIRCUITS: Final = ["auto", "hkr", "mkr1", "mkr2"]

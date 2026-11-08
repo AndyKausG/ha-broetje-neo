@@ -51,6 +51,7 @@ async def test_options_flow(hass: HomeAssistant, fake_client, config_entry) -> N
             "room_sensors": ["sensor.wohnzimmer"],
             "room_grouping": "sensor",
             "expected_spf": 3.8,
+            "heating_limit": 15,
             CONF_ALLOW_WRITE: True,
             CONF_ALLOW_PV: False,
             CONF_SCAN_INTERVAL: 30,
@@ -67,3 +68,6 @@ async def test_options_flow(hass: HomeAssistant, fake_client, config_entry) -> N
     assert config_entry.options["heating_circuit"] == "mkr2"
     assert config_entry.options["room_grouping"] == "sensor"
     assert config_entry.options["expected_spf"] == 3.8
+    assert config_entry.options["heating_limit"] == 15.0
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.wp_heating_limit_set").state == "15.0"

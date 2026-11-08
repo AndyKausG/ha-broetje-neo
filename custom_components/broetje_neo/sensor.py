@@ -25,6 +25,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
+from homeassistant.util import dt as dt_util
 
 from . import registers as r
 from .coordinator import BroetjeConfigEntry, BroetjeNeoCoordinator
@@ -329,6 +330,14 @@ def _check(
     )
 
 
+def _heat_limit_attr(c: BroetjeNeoCoordinator) -> dict[str, Any]:
+    d = dict(c.heat_limit_detail)
+    d["setting"] = c.heating_limit_setting
+    if d.get("confirmed_at") is not None:
+        d["confirmed_at"] = dt_util.utc_from_timestamp(d["confirmed_at"]).isoformat()
+    return d
+
+
 ADVISOR_SENSORS: tuple[BroetjeSensorDescription, ...] = (
     BroetjeSensorDescription(
         key="efficiency_check",
@@ -394,6 +403,22 @@ ADVISOR_SENSORS: tuple[BroetjeSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         icon="mdi:transmission-tower-off",
         value_fn=lambda c: c.grid_lock_today_min,
+    ),
+    _check(
+        "heating_limit_observed",
+        UnitOfTemperature.CELSIUS,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        icon="mdi:thermometer-lines",
+        attr_fn=_heat_limit_attr,
+    ),
+    BroetjeSensorDescription(
+        key="heating_limit_setting",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=1,
+        icon="mdi:thermometer-lines",
+        value_fn=lambda c: c.heating_limit_setting,
     ),
     _check("spf_30d", precision=2),
     _check("spf_heating_30d", precision=2),
