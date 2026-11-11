@@ -11,7 +11,7 @@
  */
 
 const DOMAIN = "broetje_neo";
-const VERSION = "0.6.0";
+const VERSION = "0.7.0";
 
 // ------------------------------------------------------------------ entities
 /** Map "domain.translation_key" -> entity_id for one broetje_neo device. */
@@ -27,7 +27,7 @@ export function resolveEntities(hass, deviceId, overrides) {
   return { ...map, ...(overrides || {}), _device: device };
 }
 
-const KEYS = {
+export const KEYS = {
   state: "sensor.plant_state",
   outdoor: "sensor.outdoor_temperature",
   flow: "sensor.flow_temperature",
@@ -146,6 +146,9 @@ export function renderSchema(hass, ids) {
     if (!o || ["unknown", "unavailable"].includes(o.state)) return "–";
     return esc(hass.formatEntityState ? hass.formatEntityState(o) : `${o.state}`);
   };
+  // clickable elements carry data-k (a KEYS key) only if the entity exists
+  const dk = (k) => (ids[KEYS[k]] ? ` data-k="${k}"` : "");
+  const grp = (k, inner) => (ids[KEYS[k]] ? `<g data-k="${k}">${inner}</g>` : inner);
   const tcol = (t) => {
     if (t === null) return "var(--disabled-text-color, #9e9e9e)";
     const x = Math.max(0, Math.min(1, (t - 20) / 40));
@@ -196,7 +199,7 @@ export function renderSchema(hass, ids) {
   const Y = (v) => 450 - Math.max(0, Math.min(1, (v - 20) / 30)) * 130;
   const curvePath =
     curve.length >= 2
-      ? `<path d="${curve.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)} ${Y(p[1]).toFixed(1)}`).join(" ")}" stroke="${HOT}" stroke-width="3" fill="none"/>`
+      ? `<path d="${curve.map((p, i) => `${i ? "L" : "M"}${X(p[0]).toFixed(1)} ${Y(p[1]).toFixed(1)}`).join(" ")}" stroke="${HOT}" stroke-width="3" fill="none"${dk("curve0")}/>`
       : `<text x="745" y="336" class="sml" text-anchor="middle">${T.curveWait}</text>`;
   const point =
     tA !== null && tM !== null
@@ -206,6 +209,7 @@ export function renderSchema(hass, ids) {
   return `
 <svg viewBox="0 0 900 470" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${label}">
   <style>
+    [data-k] { cursor: pointer; }
     .lbl { fill: var(--secondary-text-color); font-size: 15px; }
     .sml { fill: var(--secondary-text-color); font-size: 12.5px; }
     .val { fill: var(--primary-text-color); font-size: 21px; font-weight: 600; }
@@ -222,23 +226,23 @@ export function renderSchema(hass, ids) {
     @media (prefers-reduced-motion: reduce) { .flow, .spin, .pulse { animation: none; } }
   </style>
 
-  <text x="20" y="32" class="big" fill="${scol}">${label}</text>
+  <text x="20" y="32" class="big" fill="${scol}"${dk("state")}>${label}</text>
   <text x="20" y="58" class="txt">${esc(T[code] || "")}</text>
   <text x="20" y="80" class="lbl">${fbh}</text>
-  <text x="880" y="28" class="lbl" text-anchor="end">COP ${fmt("cop")}</text>
-  <text x="880" y="48" class="sml" text-anchor="end">${T.power(fmt("pel"), fmt("pth"))}</text>
+  <text x="880" y="28" class="lbl" text-anchor="end"${dk("cop")}>COP ${fmt("cop")}</text>
+  <text x="880" y="48" class="sml" text-anchor="end"${dk("pel")}>${T.power(fmt("pel"), fmt("pth"))}</text>
   <circle cx="770" cy="70" r="5" fill="${HOT}"/><text x="780" y="75" class="sml">${T.warm}</text>
   <circle cx="830" cy="70" r="5" fill="${COLD}"/><text x="840" y="75" class="sml">${T.cold}</text>
 
   <rect x="20" y="100" width="310" height="355" rx="14" fill="none" stroke="${run ? scol : IDLE}" stroke-width="3"/>
   <text x="34" y="124" class="lbl">${T.hp}</text>
-  <text x="316" y="124" class="lbl" text-anchor="end">${T.outside} ${fmt("outdoor")}</text>
-  <circle cx="70" cy="175" r="34" fill="none" stroke="${fan ? COLD : IDLE}" stroke-width="3"/>
+  <text x="316" y="124" class="lbl" text-anchor="end"${dk("outdoor")}>${T.outside} ${fmt("outdoor")}</text>
+  ${grp("fan", `  <circle cx="70" cy="175" r="34" fill="none" stroke="${fan ? COLD : IDLE}" stroke-width="3"/>
   <g class="${fan ? "spin" : ""}" fill="${fan ? COLD : IDLE}">
     <path d="M70 175 C63 155 68 145 78 143 C80 157 76 165 70 175 Z"/>
     <path d="M70 175 C90 168 101 174 102 184 C88 186 80 181 70 175 Z"/>
     <path d="M70 175 C57 191 46 191 40 182 C51 174 61 172 70 175 Z"/>
-  </g>
+  </g>`)}
   <circle cx="70" cy="175" r="4" fill="var(--primary-text-color)"/>
   <text x="70" y="226" class="sml" text-anchor="middle">${T.fan}</text>
 
@@ -246,19 +250,19 @@ export function renderSchema(hass, ids) {
   ${arc(200, 235, 280, 315, HOT)}
   ${arc(280, 315, 200, 395, WARM)}
   ${arc(200, 395, 120, 315, COLD)}
-  <circle cx="200" cy="235" r="14" fill="var(--card-background-color, #fff)" stroke="${run ? scol : IDLE}" stroke-width="3" class="${run ? "pulse" : ""}"/>
+  <circle cx="200" cy="235" r="14" fill="var(--card-background-color, #fff)" stroke="${run ? scol : IDLE}" stroke-width="3" class="${run ? "pulse" : ""}"${dk("compressor")}/>
   <text x="200" y="240" class="sml" text-anchor="middle">V</text>
-  <text x="200" y="208" class="sml" text-anchor="middle">${T.comp} <tspan class="vs">${fmt("speed")}</tspan></text>
+  <text x="200" y="208" class="sml" text-anchor="middle"${dk("speed")}>${T.comp} <tspan class="vs">${fmt("speed")}</tspan></text>
   <rect x="110" y="300" width="20" height="30" rx="3" fill="var(--card-background-color, #fff)" stroke="${run ? COLD : IDLE}" stroke-width="3"/>
   <rect x="270" y="300" width="20" height="30" rx="3" fill="var(--card-background-color, #fff)" stroke="${run ? HOT : IDLE}" stroke-width="3"/>
   <path d="M190 387 L210 403 L210 387 L190 403 Z" fill="var(--card-background-color, #fff)" stroke="${run ? WARM : IDLE}" stroke-width="3"/>
-  <text x="200" y="425" class="sml" text-anchor="middle">${T.exv} <tspan class="vs">${fmt("exv")}</tspan></text>
+  <text x="200" y="425" class="sml" text-anchor="middle"${dk("exv")}>${T.exv} <tspan class="vs">${fmt("exv")}</tspan></text>
   <text x="163" y="290" class="sml" text-anchor="middle">${T.evap}</text>
-  <text x="163" y="310" class="vs" text-anchor="middle">${fmt("pLow")}</text>
-  <text x="163" y="328" class="vs" text-anchor="middle">${fmt("tEvap")}</text>
+  <text x="163" y="310" class="vs" text-anchor="middle"${dk("pLow")}>${fmt("pLow")}</text>
+  <text x="163" y="328" class="vs" text-anchor="middle"${dk("tEvap")}>${fmt("tEvap")}</text>
   <text x="237" y="290" class="sml" text-anchor="middle">${T.cond}</text>
-  <text x="237" y="310" class="vs" text-anchor="middle">${fmt("pHigh")}</text>
-  <text x="237" y="328" class="vs" text-anchor="middle">${fmt("tCond")}</text>
+  <text x="237" y="310" class="vs" text-anchor="middle"${dk("pHigh")}>${fmt("pHigh")}</text>
+  <text x="237" y="328" class="vs" text-anchor="middle"${dk("tCond")}>${fmt("tCond")}</text>
   <text x="175" y="447" class="sml" text-anchor="middle">${run ? T.running : T.standstill}</text>
   ${defrost ? `<text x="70" y="250" class="sml" text-anchor="middle" fill="#03a9f4">${T.defrostTag}</text>` : ""}
 
@@ -272,23 +276,23 @@ export function renderSchema(hass, ids) {
   <path d="M380 300 L380 ${ww ? 312 : 288}" stroke="${water ? HOT : IDLE}" stroke-width="4" stroke-linecap="round"/>
   <text x="388" y="190" class="sml">${T.valve}</text>
   <text x="388" y="206" class="sml">${ww ? T.valveDhw : T.valveBuf}</text>
-  ${pump(445, 230, buf || defrost)}
-  <text x="352" y="288" class="sml" text-anchor="middle">${fmt("flow")}</text>
-  <text x="352" y="366" class="sml" text-anchor="middle">${fmt("ret")}</text>
+  ${grp("bufferPump", pump(445, 230, buf || defrost))}
+  <text x="352" y="288" class="sml" text-anchor="middle"${dk("flow")}>${fmt("flow")}</text>
+  <text x="352" y="366" class="sml" text-anchor="middle"${dk("ret")}>${fmt("ret")}</text>
 
-  ${tank(470, 100, 100, 160, tP, T.buffer, fmt("buffer"))}
-  ${tank(470, 285, 100, 165, tW, T.dhw, fmt("dhw"))}
+  ${grp("buffer", tank(470, 100, 100, 160, tP, T.buffer, fmt("buffer")))}
+  ${grp("dhw", tank(470, 285, 100, 165, tW, T.dhw, fmt("dhw")))}
 
   ${pipe("M570 130 H700", HOT, mkr, false)}
   ${pipe("M700 230 H570", COLD, mkr, false)}
   <path d="M600 118 L620 130 L600 142 Z M640 118 L620 130 L640 142 Z" fill="var(--card-background-color, #fff)" stroke="${mkr ? HOT : IDLE}" stroke-width="3"/>
   <path d="M620 130 V230" stroke="${mkr ? COLD : IDLE}" stroke-width="2" stroke-dasharray="4 4"/>
-  ${pump(670, 130, mkr)}
-  <text x="588" y="106" class="sml">${T.mixer} · ${fmt("mkrMode")}</text>
+  ${grp("heatingPump", pump(670, 130, mkr))}
+  <text x="588" y="106" class="sml"${dk("mkrMode")}>${T.mixer} · ${fmt("mkrMode")}</text>
   <path d="M700 130 H870 V155 H720 V180 H870 V205 H720 V230 H700" fill="none" stroke="${mkr ? tcol(tM) : IDLE}" stroke-width="4" ${mkr ? 'class="flow"' : ""}/>
-  <text x="785" y="254" class="sml" text-anchor="middle">${T.floor} · ${T.set} <tspan class="vs">${fmt("mkrSet")}</tspan></text>
+  <text x="785" y="254" class="sml" text-anchor="middle"${dk("mkrSet")}>${T.floor} · ${T.set} <tspan class="vs">${fmt("mkrSet")}</tspan></text>
 
-  <text x="620" y="290" class="lbl">${T.curve}</text>
+  <text x="620" y="290" class="lbl"${dk("curve0")}>${T.curve}</text>
   <path d="M620 320 V450 H870" stroke="var(--secondary-text-color)" stroke-width="1" fill="none"/>
   <path d="M${X(0).toFixed(1)} 320 V450" stroke="${IDLE}" stroke-width="1" stroke-dasharray="3 4"/>
   ${curvePath}
@@ -314,6 +318,7 @@ class BroetjeNeoCard extends Base {
     this._hass = hass;
     const ids = resolveEntities(hass, this._config.device_id, this._config.entities);
     if (this._config.heating_pump_entity) ids[KEYS.heatingPump] = this._config.heating_pump_entity;
+    this._ids = ids;
     // re-render only when one of the used states changed
     const sig =
       Object.values(KEYS)
@@ -331,14 +336,27 @@ class BroetjeNeoCard extends Base {
               font-family: var(--ha-font-family-body, var(--paper-font-body1_-_font-family, sans-serif)); }
       </style>
       <ha-card>${renderSchema(hass, ids)}</ha-card>`;
-    const card = this.shadowRoot.querySelector("ha-card");
-    card.addEventListener("click", () => {
-      const entityId = ids[KEYS.state];
-      if (!entityId) return;
-      const ev = new Event("hass-more-info", { bubbles: true, composed: true });
-      ev.detail = { entityId };
-      this.dispatchEvent(ev);
-    });
+    if (!this._clickBound) {
+      this._clickBound = true;
+      this.shadowRoot.addEventListener("click", (ev) => this._onClick(ev));
+    }
+  }
+
+  _onClick(ev) {
+    const ids = this._ids || {};
+    let entityId;
+    for (const el of ev.composedPath()) {
+      const k = el.getAttribute?.("data-k");
+      if (k && ids[KEYS[k]]) {
+        entityId = ids[KEYS[k]];
+        break;
+      }
+    }
+    entityId = entityId || ids[KEYS.state];
+    if (!entityId) return;
+    const out = new Event("hass-more-info", { bubbles: true, composed: true });
+    out.detail = { entityId };
+    this.dispatchEvent(out);
   }
 
   getCardSize() {

@@ -116,6 +116,9 @@ Bewegung nur bei Aktivität:
 Im Ruhezustand sind alle Leitungen grau und statisch. Im Stillstand zeigen Nieder- und
 Hochdruck denselben Wert (Druckausgleich), das Schema sagt das ausdrücklich.
 
+Klick auf Werte, Speicher, Pumpen, Lüfter oder Verdichter öffnet die Details der jeweiligen
+Entität (Verlauf, Attribute); Klick auf eine freie Fläche öffnet den Status.
+
 Weitere Elemente:
 
 - **Klartext**: ein Satz je Zustand (z. B. „Das Haus braucht Wärme. Der Puffer ist noch
