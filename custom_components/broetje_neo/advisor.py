@@ -32,6 +32,8 @@ LIMIT_KEEP_S = 60 * DAY  # demand starts kept for the estimate
 LIMIT_MIN_STARTS = 3  # starts needed for a candidate
 LIMIT_MARGIN = 1.0  # K above the candidate ...
 LIMIT_CONFIRM_H = 6  # ... for this many hours without heating demand (last 14 days)
+SPF_MIN_DAYS = 7  # data needed before the 30-day SPF is shown
+METER_TOLERANCE = 0.25  # controller counters vs. measured power
 SEASON_GAP_S = 14 * DAY  # a heating demand after this pause starts a new heating season
 
 # max. flow/return spread in heating mode (rule of thumb)
@@ -136,6 +138,9 @@ class Tracker:
     buckets: dict[int, Bucket] = field(default_factory=dict)
     runs: list[tuple[float, float]] = field(default_factory=list)  # (end_ts, duration_s)
     counters: dict[str, dict[str, float]] = field(default_factory=dict)  # day -> values
+    # day -> kWh integrated from the power readings (el, th, el_heat, th_heat, el_dhw, th_dhw)
+    energy_days: dict[str, dict[str, float]] = field(default_factory=dict)
+    _last_demand: str | None = None
     first_ts: float | None = None
     _last_ts: float | None = None
     _last_comp: bool | None = None
@@ -170,11 +175,20 @@ class Tracker:
             b.demand_heat_s += dt
             if self._last_comp:
                 b.comp_heat_s += dt
-        if self._last_p_el is not None:
-            b.e_el_wh += self._last_p_el * dt / HOUR
-        if self._last_p_th is not None:
-            b.e_th_wh += self._last_p_th * 1000 * dt / HOUR
+        e_el = self._last_p_el * dt / HOUR if self._last_p_el is not None else 0.0  # Wh
+        e_th = self._last_p_th * 1000 * dt / HOUR if self._last_p_th is not None else 0.0
+        b.e_el_wh += e_el
+        b.e_th_wh += e_th
+        if e_el or e_th:
+            day = self.energy_days.setdefault(str(int(s.ts // DAY)), {})
+            mode = {"heating": "_heat", "hot_water": "_dhw"}.get(self._last_demand or "", "")
+            for key, wh in (("el", e_el), ("th", e_th)):
+                day[key] = day.get(key, 0.0) + wh / 1000
+                if mode:
+                    day[key + mode] = day.get(key + mode, 0.0) + wh / 1000
         self._last_p_el, self._last_p_th = s.p_el, s.p_th
+        if s.demand is not None:
+            self._last_demand = s.demand
         if s.compressor is not None and s.demand is not None:
             comp_heat = s.compressor and s.demand == "heating"
             if comp_heat and self._last_comp_heat is False:
@@ -298,6 +312,8 @@ class Tracker:
         d_min = int((now - 40 * DAY) // DAY)
         for d in [d for d in self.counters if int(d) < d_min]:
             del self.counters[d]
+        for d in [d for d in self.energy_days if int(d) < d_min]:
+            del self.energy_days[d]
 
     # ------------------------------------------------------ persistence
     def to_dict(self) -> dict[str, Any]:
@@ -305,6 +321,7 @@ class Tracker:
             "buckets": [asdict(b) for b in self.buckets.values()],
             "runs": self.runs,
             "counters": self.counters,
+            "energy_days": self.energy_days,
             "first_ts": self.first_ts,
             "heat_starts": self.heat_starts,
             "heat_limit": self.heat_limit,
@@ -323,6 +340,14 @@ class Tracker:
             t.buckets[b.hour] = b
         t.runs = [tuple(r) for r in data.get("runs", [])]
         t.counters = data.get("counters", {})
+        t.energy_days = data.get("energy_days", {})
+        if "energy_days" not in data:
+            # stored by 0.6.x: rebuild daily totals (no heating/DHW split) from the hours
+            for bk in t.buckets.values():
+                if bk.e_el_wh or bk.e_th_wh:
+                    day = t.energy_days.setdefault(str(bk.hour * HOUR // DAY), {})
+                    day["el"] = day.get("el", 0.0) + bk.e_el_wh / 1000
+                    day["th"] = day.get("th", 0.0) + bk.e_th_wh / 1000
         t.first_ts = data.get("first_ts")
         t.heat_starts = [tuple(h) for h in data.get("heat_starts", [])]
         t.heat_limit = data.get("heat_limit")
@@ -521,33 +546,83 @@ class Tracker:
             res["curve_slope"] = round(-slope, 2)
         return res
 
-    def _spf(self, now: float) -> dict[str, float | None]:
-        """Seasonal performance factor over the last ~30 days."""
-        res: dict[str, float | None] = {
+    def _spf(self, now: float) -> dict[str, Any]:
+        """Seasonal performance factor over the last 30 days.
+
+        Uses the energy integrated from the power readings (reg. 70/74); the
+        controller counters only as fallback without power readings, because they
+        can lag badly (seen: "electricity heating" +1 kWh for 133 kWh of heat).
+        """
+        res: dict[str, Any] = {
             "spf_30d": None,
             "spf_heating_30d": None,
             "spf_dhw_30d": None,
+            "spf_source": None,
+            "spf_days": None,
+            "meter_el_ratio": None,
+            "meter_el_heat_ratio": None,
         }
-        if len(self.counters) < 2:
+        if self.data_days(now) < SPF_MIN_DAYS:
             return res
-        days = sorted(self.counters, key=int)
         target = int(now // DAY) - 30
-        start = next((d for d in days if int(d) >= target), days[0])
-        a, b = self.counters[start], self.counters[days[-1]]
+        days = sorted((d for d in self.energy_days if int(d) >= target), key=int)
 
-        def ratio(th: str, el: str, min_el: float) -> float | None:
+        def ratio(th: float, el: float, min_el: float) -> float | None:
+            return round(th / el, 2) if el >= min_el and th >= 0 else None
+
+        if days:
+            tot = {
+                k: sum(self.energy_days[d].get(k, 0.0) for d in days)
+                for k in ("el", "th", "el_heat", "th_heat", "el_dhw", "th_dhw")
+            }
+            res["spf_30d"] = ratio(tot["th"], tot["el"], 20)
+            res["spf_heating_30d"] = ratio(tot["th_heat"], tot["el_heat"], 20)
+            res["spf_dhw_30d"] = ratio(tot["th_dhw"], tot["el_dhw"], 10)
+            res["spf_source"] = "power"
+            res["spf_days"] = len(days)
+            res |= self._meter_check(days, tot)
+            return res
+
+        # fallback: controller counters
+        cdays = sorted(self.counters, key=int)
+        if len(cdays) < 2:
+            return res
+        start = next((d for d in cdays if int(d) >= target), cdays[0])
+        a, b = self.counters[start], self.counters[cdays[-1]]
+
+        def cratio(th: str, el: str, min_el: float) -> float | None:
             if th not in a or th not in b or el not in a or el not in b:
                 return None
-            d_el = b[el] - a[el]
-            d_th = b[th] - a[th]
-            if d_el < min_el or d_th < 0:
-                return None
-            return round(d_th / d_el, 2)
+            return ratio(b[th] - a[th], b[el] - a[el], min_el)
 
-        res["spf_30d"] = ratio("e_th_total", "e_el_total", 20)
-        res["spf_heating_30d"] = ratio("e_th_heat", "e_el_heat", 20)
-        res["spf_dhw_30d"] = ratio("e_th_dhw", "e_el_dhw", 10)
+        res["spf_30d"] = cratio("e_th_total", "e_el_total", 20)
+        res["spf_heating_30d"] = cratio("e_th_heat", "e_el_heat", 20)
+        res["spf_dhw_30d"] = cratio("e_th_dhw", "e_el_dhw", 10)
+        res["spf_source"] = "counters"
+        res["spf_days"] = int(cdays[-1]) - int(start)
         return res
+
+    def _meter_check(self, days: list[str], tot: dict[str, float]) -> dict[str, float | None]:
+        """Controller counter increase / measured energy over the same days."""
+        out: dict[str, float | None] = {"meter_el_ratio": None, "meter_el_heat_ratio": None}
+        # counter snapshot = last value of a day: compare from the day before the
+        # first measured day, or (fresh install) from the end of the first day on
+        prev = str(int(days[0]) - 1)
+        if prev not in self.counters:
+            prev, days = days[0], days[1:]
+            if not days:
+                return out
+            tot = {k: sum(self.energy_days[d].get(k, 0.0) for d in days) for k in ("el", "el_heat")}
+        a, b = self.counters.get(prev), self.counters.get(days[-1])
+        if not a or not b:
+            return out
+        for key, cnt, meas in (
+            ("meter_el_ratio", "e_el_total", "el"),
+            ("meter_el_heat_ratio", "e_el_heat", "el_heat"),
+        ):
+            if cnt in a and cnt in b and tot[meas] >= 20:
+                out[key] = round((b[cnt] - a[cnt]) / tot[meas], 2)
+        return out
 
 
 # ------------------------------------------------------------------ rules
@@ -924,6 +999,31 @@ def advise(
                 "Auffälliger Kältekreis-Wert (Überhitzung)",
                 f"Überhitzung im Mittel {_fmt(sh)} K, üblich sind ca. 4–8 K.",
                 "Nicht selbst eingreifen. Bei der nächsten Wartung ansprechen.",
+                "Fachbetrieb",
+            )
+        )
+
+    # Controller energy counters vs. measured power
+    meter = [
+        (name, r)
+        for name, r in (
+            ("Strom gesamt", fig.get("meter_el_ratio")),
+            ("Strom Heizen", fig.get("meter_el_heat_ratio")),
+        )
+        if r is not None and abs(r - 1) > METER_TOLERANCE
+    ]
+    if meter:
+        detail = ", ".join(f"{name} {_fmt(r * 100)} %" for name, r in meter)
+        add(
+            Hint(
+                "meter_mismatch",
+                "info",
+                "Energiezähler des Reglers weichen von der Messung ab",
+                f"Zuwachs der Reglerzähler im Verhältnis zur gemessenen Leistung: {detail} "
+                "(100 % = passt). Die Arbeitszahlen der Integration rechnen deshalb mit der "
+                "gemessenen Leistung.",
+                "Am Bedienteil prüfen, ob die Energiezähler weiterzählen. Wenn nicht, mit dem "
+                "Fachbetrieb klären (Firmware, Einstellung der Energiezählung).",
                 "Fachbetrieb",
             )
         )

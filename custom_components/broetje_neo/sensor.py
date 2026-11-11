@@ -317,6 +317,15 @@ def _hints_attr(c: BroetjeNeoCoordinator) -> dict[str, Any]:
     }
 
 
+def _spf_attr(c: BroetjeNeoCoordinator) -> dict[str, Any]:
+    """Where the 30-day SPF comes from (measured power or controller counters)."""
+    return {
+        "source": c.figures.get("spf_source"),
+        "days": c.figures.get("spf_days"),
+        "meter_el_ratio": c.figures.get("meter_el_ratio"),
+    }
+
+
 def _check(
     key: str, unit: str | None = None, *, precision: int = 1, **kw
 ) -> BroetjeSensorDescription:
@@ -525,9 +534,9 @@ ADVISOR_SENSORS: tuple[BroetjeSensorDescription, ...] = (
         icon="mdi:thermometer-lines",
         value_fn=lambda c: c.heating_limit_setting,
     ),
-    _check("spf_30d", precision=2),
-    _check("spf_heating_30d", precision=2),
-    _check("spf_dhw_30d", precision=2),
+    _check("spf_30d", precision=2, attr_fn=_spf_attr),
+    _check("spf_heating_30d", precision=2, attr_fn=_spf_attr),
+    _check("spf_dhw_30d", precision=2, attr_fn=_spf_attr),
 )
 
 

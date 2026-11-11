@@ -74,6 +74,7 @@ import(require("url").pathToFileURL(jsPath).href).then(async (m) => {
   }
   out.svg = m.renderSchema(hass, ids);
   out.ids = ids;
+  out.keys = m.KEYS;
   console.log(JSON.stringify(out));
 });
 """
@@ -119,6 +120,12 @@ async def test_strategy_and_card_with_real_entities(
     svg = out["svg"]
     assert "<svg" in svg and "undefined" not in svg and "NaN" not in svg
     assert ("Puffer" if lang == "de" else "Buffer") in svg
+    # clickable elements: every data-k maps to an existing entity
+    assert 'data-k="buffer"' in svg and 'data-k="outdoor"' in svg
+    found = set(__import__("re").findall(r'data-k="([A-Za-z0-9]+)"', svg))
+    assert found
+    for k in found:
+        assert out["ids"].get(out["keys"][k]) in states, k
 
     for charts in ("apexcharts", "core"):
         dash = out[charts]

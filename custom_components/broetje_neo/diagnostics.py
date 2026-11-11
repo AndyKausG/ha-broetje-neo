@@ -24,4 +24,13 @@ async def async_get_config_entry_diagnostics(
         "last_update_success": coordinator.last_update_success,
         "optional_blocks_ok": coordinator.optional_blocks_ok,
         "registers": coordinator.diagnostics(),
+        "advisor": {
+            "data_days": coordinator.data_days,
+            "first_ts": coordinator.tracker.first_ts,
+            "counters": coordinator.tracker.counters,
+            "energy_days": coordinator.tracker.energy_days,
+            "figures": {
+                k: v for k, v in coordinator.figures.items() if k.startswith(("spf", "meter"))
+            },
+        },
     }

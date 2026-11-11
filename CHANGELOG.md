@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0] - 2026-11-11
+
+- **30-day SPF from the measured power** (reg. 70/74 integrated per day, split into heating and hot water, kept 40 days) instead of the controller's energy counters, which can lag badly (seen in the field: "electricity heating" +1 kWh while 133 kWh of heat were produced, SPF shown as 7.9 instead of 4.7). The counters are only used when no power readings exist. New attributes `source`, `days`, `meter_el_ratio`.
+- The 30-day SPF values are shown only from 7 days of data (before: "unknown").
+- New efficiency check hint "Energiezähler des Reglers weichen von der Messung ab" when the counter increase differs by more than 25 % from the measured energy.
+- Diagnostics include the daily counter snapshots and the measured daily energy.
+- Plant card: clicking a value, tank, pump, the fan or the compressor opens the details of that entity (elsewhere: the state sensor).
+
 ## [0.6.0] - 2026-11-08
 
 - **Operation overview in the integration** (no package needed any more):

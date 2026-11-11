@@ -86,7 +86,15 @@ def test_figures_basic() -> None:
     assert abs(fig["rl_set_0"] - 27) < 0.3
     assert abs(fig["rl_set_18"] - 23.4) < 0.3
     assert abs(fig["rl_set_m15"] - 30) < 0.3
-    assert fig["spf_30d"] == 3.6
+    assert fig["spf_30d"] is None  # less than 7 days of data
+
+
+def test_spf_counters_fallback_after_7_days() -> None:
+    tr = a.Tracker()
+    now = _feed_days(tr, 8, flow_fn=lambda t: 30 - 0.5 * t)
+    fig = tr.figures(now)
+    assert fig["spf_30d"] == 3.6  # no power readings -> controller counters
+    assert fig["spf_source"] == "counters"
 
 
 def test_good_installation_no_hints() -> None:
@@ -174,7 +182,7 @@ def test_dhw_and_room_setpoint_hints() -> None:
 
 def test_spf_below_plan() -> None:
     tr = a.Tracker()
-    now = _feed_days(tr, 4, flow_fn=lambda t: 28 - 0.4 * t)
+    now = _feed_days(tr, 8, flow_fn=lambda t: 28 - 0.4 * t)
     ctx = a.Context(room_setpoint=21.0, has_room_sensor=True, expected_spf=4.2)
     hints = a.advise(tr.figures(now), ctx, 4)
     assert hints[0].id == "spf_below_plan"
@@ -568,3 +576,78 @@ def test_heating_season_start() -> None:
     assert tr.season_start == ts
     tr2 = a.Tracker.from_dict(tr.to_dict())
     assert tr2.season_start == ts and tr2.last_heat_start == ts
+
+
+# --- SPF from measured power / meter check ------------------------------------
+def _feed_power(tr, days: int, *, counter_el_factor: float = 1.0, step: int = 60) -> float:
+    """Heating 12 h/day at 2 kW el / 8 kW th, DHW 2 h/day at 1.5 kW / 4.5 kW, else idle.
+
+    The controller counters grow by counter_el_factor x the real electricity.
+    """
+    ts = T0
+    e_el = e_th = 0.0
+    for i in range(days * DAY_S // step):
+        ts = T0 + i * step
+        h = (ts % DAY_S) / 3600
+        if h < 12:
+            demand, p_el, p_th = "heating", 2000.0, 8.0
+        elif h < 14:
+            demand, p_el, p_th = "hot_water", 1500.0, 4.5
+        else:
+            demand, p_el, p_th = "none", 10.0, 0.0
+        e_el += p_el * step / 3600 / 1000 * counter_el_factor
+        e_th += p_th * step / 3600
+        tr.feed(
+            a.Sample(
+                ts=ts,
+                demand=demand,
+                compressor=demand != "none",
+                p_el=p_el,
+                p_th=p_th,
+                e_el_total=round(e_el),
+                e_th_total=round(e_th),
+                e_el_heat=round(e_el),
+                e_th_heat=round(e_th),
+            )
+        )
+    return ts + step
+
+
+def test_spf_from_measured_power() -> None:
+    tr = a.Tracker()
+    now = _feed_power(tr, 9, counter_el_factor=0.4)  # counters count far too little
+    fig = tr.figures(now)
+    assert fig["spf_source"] == "power"
+    assert fig["spf_30d"] == pytest_approx(
+        (12 * 8 + 2 * 4.5) / (12 * 2 + 2 * 1.5 + 10 * 0.01), 0.03
+    )
+    assert fig["spf_heating_30d"] == pytest_approx(4.0, 0.03)
+    assert fig["spf_dhw_30d"] == pytest_approx(3.0, 0.03)
+    assert fig["spf_days"] >= 9
+    assert fig["meter_el_ratio"] == pytest_approx(0.4, 0.1)
+    hints = [h.id for h in a.advise(fig, a.Context(), 9, [])]
+    assert "meter_mismatch" in hints
+
+
+def test_spf_not_before_7_days_and_meter_ok() -> None:
+    tr = a.Tracker()
+    now = _feed_power(tr, 5)
+    assert tr.figures(now)["spf_30d"] is None
+    tr = a.Tracker()
+    now = _feed_power(tr, 9)
+    fig = tr.figures(now)
+    assert fig["meter_el_ratio"] == pytest_approx(1.0, 0.1)
+    assert "meter_mismatch" not in [h.id for h in a.advise(fig, a.Context(), 9, [])]
+
+
+def test_energy_days_persisted() -> None:
+    tr = a.Tracker()
+    now = _feed_power(tr, 8)
+    tr2 = a.Tracker.from_dict(tr.to_dict())
+    assert tr2.energy_days == tr.energy_days
+    assert tr2.figures(now)["spf_30d"] == tr.figures(now)["spf_30d"]
+    old = tr.to_dict()
+    del old["energy_days"]
+    rebuilt = a.Tracker.from_dict(old)  # 0.6.x data: totals rebuilt from the hourly buckets
+    assert rebuilt.figures(now)["spf_30d"] == pytest_approx(tr.figures(now)["spf_30d"], 0.02)
+    assert rebuilt.figures(now)["spf_heating_30d"] is None  # no split in old data

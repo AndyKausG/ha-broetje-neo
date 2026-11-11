@@ -339,7 +339,8 @@ Der Check schreibt nie. Er arbeitet unabhängig von allen Freigaben.
 | **Heizkurve RL-Soll bei 18 / 0 / −15 °C** | lineare Regression R34 über R33 (sonst R10) aus Stundenmitteln (≥ 10 Werte je Stunde), mindestens 12 Stunden und 4 K Spanne; Ausgabe nur bis 10 K außerhalb des gemessenen Bereichs |
 | Raumabweichung 7 d | Mittel (Raum − R101) |
 | Raumabweichung kalt / mild | Stundenmittel bei Außen < 3 °C bzw. > 8 °C, jeweils ≥ 12 h |
-| Arbeitszahl 30 d (gesamt/Heizen/WW) | Differenz der Tageszählerstände; mindestens 20 kWh Strom (WW 10 kWh) |
+| Arbeitszahl 30 d (gesamt/Heizen/WW) | Summe der aus R70/R74 hochgerechneten Tagesenergie (Aufteilung nach R41 zu Intervallbeginn), ab 7 Tagen Datenbasis, mindestens 20 kWh Strom (WW 10 kWh). Nur ohne Leistungswerte: Differenz der Tageszählerstände R60–R73 |
+| Zählerprüfung | Zuwachs R68 bzw. R62 / hochgerechneter Strom; Hinweis `meter_mismatch` bei Abweichung > 25 % |
 | **Heizgrenze beobachtet** | siehe unten |
 
 Heizgrenze beobachtet (selbstlernend, nur lesend):
