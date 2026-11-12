@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.7.1] - 2026-11-12
+
+- Plant card: the fan no longer wobbles while it spins (three identical blades rotated by 120° around the hub, explicit rotation origin).
+
 ## [0.7.0] - 2026-11-11
 
 - **30-day SPF from the measured power** (reg. 70/74 integrated per day, split into heating and hot water, kept 40 days) instead of the controller's energy counters, which can lag badly (seen in the field: "electricity heating" +1 kWh while 133 kWh of heat were produced, SPF shown as 7.9 instead of 4.7). The counters are only used when no power readings exist. New attributes `source`, `days`, `meter_el_ratio`.
