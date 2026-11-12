@@ -11,7 +11,7 @@
  */
 
 const DOMAIN = "broetje_neo";
-const VERSION = "0.7.0";
+const VERSION = "0.7.1";
 
 // ------------------------------------------------------------------ entities
 /** Map "domain.translation_key" -> entity_id for one broetje_neo device. */
@@ -218,7 +218,7 @@ export function renderSchema(hass, ids) {
     .big { font-size: 26px; font-weight: 700; }
     .flow { stroke-dasharray: 12 10; animation: flow 1.1s linear infinite; }
     .rev { animation-direction: reverse; }
-    .spin { transform-origin: 70px 175px; animation: spin ${fanDur}s linear infinite; }
+    .spin { transform-box: view-box; transform-origin: 70px 175px; animation: spin ${fanDur}s linear infinite; }
     .pulse { animation: pulse 1.4s ease-in-out infinite; }
     @keyframes flow { to { stroke-dashoffset: -22; } }
     @keyframes spin { to { transform: rotate(360deg); } }
@@ -239,9 +239,9 @@ export function renderSchema(hass, ids) {
   <text x="316" y="124" class="lbl" text-anchor="end"${dk("outdoor")}>${T.outside} ${fmt("outdoor")}</text>
   ${grp("fan", `  <circle cx="70" cy="175" r="34" fill="none" stroke="${fan ? COLD : IDLE}" stroke-width="3"/>
   <g class="${fan ? "spin" : ""}" fill="${fan ? COLD : IDLE}">
-    <path d="M70 175 C63 155 68 145 78 143 C80 157 76 165 70 175 Z"/>
-    <path d="M70 175 C90 168 101 174 102 184 C88 186 80 181 70 175 Z"/>
-    <path d="M70 175 C57 191 46 191 40 182 C51 174 61 172 70 175 Z"/>
+    <path d="M70 175 C63 162 63 149 70 142 C77 149 77 162 70 175 Z"/>
+    <path d="M70 175 C63 162 63 149 70 142 C77 149 77 162 70 175 Z" transform="rotate(120 70 175)"/>
+    <path d="M70 175 C63 162 63 149 70 142 C77 149 77 162 70 175 Z" transform="rotate(240 70 175)"/>
   </g>`)}
   <circle cx="70" cy="175" r="4" fill="var(--primary-text-color)"/>
   <text x="70" y="226" class="sml" text-anchor="middle">${T.fan}</text>
